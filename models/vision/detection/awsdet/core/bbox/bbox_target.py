@@ -65,8 +65,10 @@ class ProposalTarget:
         rcnn_target_deltas_list = []
         inside_weights_list = []
         outside_weights_list = []
+        gt_assignment_list = []
         for i in range(img_metas.shape[0]):
-            rois, target_matchs, target_deltas, inside_weights, outside_weights = self._build_single_target(
+            rois, target_matchs, target_deltas, inside_weights, outside_weights, gt_assignment \
+                                                                    = self._build_single_target(
                                                                                     proposals_list[i], 
                                                                                     gt_boxes[i],
                                                                                     gt_class_ids[i],
@@ -76,14 +78,16 @@ class ProposalTarget:
             rcnn_target_deltas_list.append(target_deltas)
             inside_weights_list.append(inside_weights)
             outside_weights_list.append(outside_weights)
+            gt_assignment_list.append(gt_assignment)
 
         # rois = tf.concat(rois_list, axis=0)
         rcnn_target_matchs = tf.concat(rcnn_target_matchs_list, axis=0)
         rcnn_target_deltas = tf.concat(rcnn_target_deltas_list, axis=0)
         inside_weights = tf.concat(inside_weights_list, axis=0)
         outside_weights = tf.concat(outside_weights_list, axis=0)
+        gt_assignment = tf.concat(gt_assignment_list, axis=0)
         # TODO: concat proposals list and rois_list 
-        return (rois_list, rcnn_target_matchs, rcnn_target_deltas, 
+        return (rois_list, gt_assignment, rcnn_target_matchs, rcnn_target_deltas, 
                 inside_weights, outside_weights)
 
     @tf.function(experimental_relax_shapes=True) # relax shapes to reduce function retracing TODO: revisit implementation
@@ -175,6 +179,6 @@ class ProposalTarget:
 
         bbox_outside_weights = tf.ones_like(bbox_inside_weights, dtype=bbox_inside_weights.dtype) * 1.0 / self.num_rcnn_deltas
         return (tf.stop_gradient(final_rois), tf.stop_gradient(final_labels), tf.stop_gradient(final_bbox_targets),
-               tf.stop_gradient(bbox_inside_weights), tf.stop_gradient(bbox_outside_weights))
+               tf.stop_gradient(bbox_inside_weights), tf.stop_gradient(bbox_outside_weights), tf.stop_gradient(gt_assignment))
 
 
