@@ -98,7 +98,7 @@ def batch_processor(model, data, train_mode, loss_weights = {'rpn_class_loss': 1
         reg_losses = tf.add_n(model.losses)
         local_batch_size = data[0].shape[0]
         losses['reg_loss'] = reg_losses
-        losses = {i:losses[i]*j for i,j in loss_weights.items()}
+        #losses = {i:losses[i]*j for i,j in loss_weights.items()}
         loss, log_vars = parse_losses(losses, local_batch_size)
         outputs = dict(loss=loss,
                        log_vars=log_vars,

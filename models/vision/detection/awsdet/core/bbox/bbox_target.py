@@ -65,33 +65,34 @@ class ProposalTarget:
         rcnn_target_deltas_list = []
         inside_weights_list = []
         outside_weights_list = []
-        gt_assignment_list = []
+        fg_assignments_list = []
         for i in range(img_metas.shape[0]):
-            rois, target_matchs, target_deltas, inside_weights, outside_weights, gt_assignment \
+            rois, target_matchs, target_deltas, inside_weights, outside_weights, fg_assignment \
                                                                     = self._build_single_target(
                                                                                     proposals_list[i], 
                                                                                     gt_boxes[i],
                                                                                     gt_class_ids[i],
-                                                                                    pad_shapes[i])
+                                                                                    pad_shapes[i],
+                                                                                    i)
             rois_list.append(rois)
             rcnn_target_matchs_list.append(target_matchs)
             rcnn_target_deltas_list.append(target_deltas)
             inside_weights_list.append(inside_weights)
             outside_weights_list.append(outside_weights)
-            gt_assignment_list.append(gt_assignment)
+            fg_assignments_list.append(fg_assignment)
 
         # rois = tf.concat(rois_list, axis=0)
         rcnn_target_matchs = tf.concat(rcnn_target_matchs_list, axis=0)
         rcnn_target_deltas = tf.concat(rcnn_target_deltas_list, axis=0)
         inside_weights = tf.concat(inside_weights_list, axis=0)
         outside_weights = tf.concat(outside_weights_list, axis=0)
-        gt_assignment = tf.concat(gt_assignment_list, axis=0)
+        fg_assignments = tf.concat(fg_assignments_list, axis=0)
         # TODO: concat proposals list and rois_list 
-        return (rois_list, gt_assignment, rcnn_target_matchs, rcnn_target_deltas, 
-                inside_weights, outside_weights)
+        return (rois_list, rcnn_target_matchs, rcnn_target_deltas, 
+                inside_weights, outside_weights, fg_assignments)
 
     @tf.function(experimental_relax_shapes=True) # relax shapes to reduce function retracing TODO: revisit implementation
-    def _build_single_target(self, proposals, gt_boxes, gt_class_ids, img_shape):
+    def _build_single_target(self, proposals, gt_boxes, gt_class_ids, img_shape, batch):
         '''
         Args
         ---
@@ -108,6 +109,7 @@ class ProposalTarget:
         '''
         # remove padded proposals and gt boxes if any
         proposals, _ = trim_zeros(proposals)
+        original_shape = tf.shape(gt_boxes)[0]
         gt_boxes, non_zeros = trim_zeros(gt_boxes)
         gt_boxes = tf.cast(gt_boxes, proposals.dtype)
         gt_labels = tf.boolean_mask(gt_class_ids, non_zeros)
@@ -178,7 +180,9 @@ class ProposalTarget:
         final_bbox_targets = tf.reshape(final_bbox_targets, [-1, self.num_classes * 4])
 
         bbox_outside_weights = tf.ones_like(bbox_inside_weights, dtype=bbox_inside_weights.dtype) * 1.0 / self.num_rcnn_deltas
+        fg_assignments = tf.gather(gt_assignment, keep_inds)
+        #fg_assignments = tf.cast(fg_assignments, tf.int32) + batch*original_shape
         return (tf.stop_gradient(final_rois), tf.stop_gradient(final_labels), tf.stop_gradient(final_bbox_targets),
-               tf.stop_gradient(bbox_inside_weights), tf.stop_gradient(bbox_outside_weights), tf.stop_gradient(gt_assignment))
+               tf.stop_gradient(bbox_inside_weights), tf.stop_gradient(bbox_outside_weights), tf.stop_gradient(fg_assignments))
 
 

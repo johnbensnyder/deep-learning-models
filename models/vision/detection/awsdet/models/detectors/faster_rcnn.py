@@ -93,8 +93,9 @@ class FasterRCNN(TwoStageDetector):
             rpn_probs, rpn_deltas, img_metas, training=training)
         s4 = tf.timestamp()
         if training: # get target value for these proposal target label and target delta
-            rois_list, gt_assignment, rcnn_target_matchs, rcnn_target_deltas, \
-            inside_weights, outside_weights = self.bbox_target.build_targets(proposals_list, gt_boxes, gt_class_ids, img_metas)
+            rois_list, rcnn_target_matchs, rcnn_target_deltas, \
+            inside_weights, outside_weights, fg_assignments = \
+            self.bbox_target.build_targets(proposals_list, gt_boxes, gt_class_ids, img_metas)
         else:
             rois_list = proposals_list
         s5 = tf.timestamp()
