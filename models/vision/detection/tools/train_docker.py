@@ -14,6 +14,7 @@ import tensorflow_addons as tfa
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
+from awsdet.models.detectors.mask_rcnn import MaskRCNN
 from awsdet.datasets import DATASETS, build_dataloader
 from awsdet.datasets import build_dataset, build_dataloader
 from awsdet.models import build_detector
