@@ -27,7 +27,8 @@ class MaskHead(tf.keras.Model):
         self.deconv = layers.Conv2DTranspose(256, (2, 2), strides=2, activation="relu",
                                              name="mask_deconv")
         self.masks = layers.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid", name="mask")
-        
+    
+    @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=True):
         masks = []
         pooled_rois_list = inputs

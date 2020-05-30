@@ -61,9 +61,9 @@ def build_dataloader(dataset,
                                 padded_shapes=(
                                 tf.TensorShape([None, None, 3]), # image padded to largest in batch
                                 tf.TensorShape([11]),            # image meta - no padding
-                                tf.TensorShape([128, 4]),       # bounding boxes, padded to longest
-                                tf.TensorShape([128]),          # labels, padded to longest
-                                tf.TensorShape([128, None, None])
+                                tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
+                                tf.TensorShape([None]),          # labels, padded to longest
+                                tf.TensorShape([None, None, None])
                                 ),
                                 padding_values=(0.0, 0.0, 0.0, -1, -1))
         else:
@@ -72,8 +72,8 @@ def build_dataloader(dataset,
                                 padded_shapes=(
                                 tf.TensorShape([None, None, 3]), # image padded to largest in batch
                                 tf.TensorShape([11]),            # image meta - no padding
-                                tf.TensorShape([100, 4]),       # bounding boxes, padded to longest
-                                tf.TensorShape([100])          # labels, padded to longest
+                                tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
+                                tf.TensorShape([None])          # labels, padded to longest
                                 ),
                                 padding_values=(0.0, 0.0, 0.0, -1))
 

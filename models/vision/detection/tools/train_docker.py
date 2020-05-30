@@ -35,6 +35,7 @@ import argparse
 
 fp16 = True
 hvd.init()
+#tf.config.experimental_run_functions_eagerly(True)
 tf.config.optimizer.set_experimental_options({"auto_mixed_precision": fp16})
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -122,6 +123,8 @@ def main(cfg):
     ######################################################################################
     # Run Model
     ######################################################################################
+    if hvd.rank()==0:
+        tf.profiler.experimental.server.start(6009)
     runner.run(tf_datasets, cfg.workflow, cfg.training_epochs)
 
 def parse():
