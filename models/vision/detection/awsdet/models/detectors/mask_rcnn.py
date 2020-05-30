@@ -107,7 +107,7 @@ class MaskRCNN(TwoStageDetector):
                                                                     training=training)
         mask_pooled_regions_list = self.mask_roi_extractor(
             (rois_list, rcnn_feature_maps, img_metas), training=training)
-        rcnn_masks = self.mask_head(pooled_regions_list)
+        rcnn_masks = self.mask_head(mask_pooled_regions_list)
         if training:
             rpn_inputs = (rpn_class_logits, rpn_deltas, gt_boxes, gt_class_ids, img_metas)
             rpn_class_loss, rpn_bbox_loss = self.rpn_head.loss(rpn_inputs)
@@ -139,10 +139,11 @@ class MaskRCNN(TwoStageDetector):
                                                         rcnn_deltas, 
                                                         rois_list, 
                                                         img_metas)
+            
             detections_dict = {
                     'bboxes': detections_list[0][0],
                     'labels': detections_list[0][1],
                     'scores': detections_list[0][2],
-                    'masks': rcnn_masks
+                    'masks': tf.gather(rcnn_masks[0], detections_list[0][3])
             }
             return detections_dict

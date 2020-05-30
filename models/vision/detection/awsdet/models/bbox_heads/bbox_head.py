@@ -243,4 +243,5 @@ class BBoxHead(tf.keras.Model):
  
         return (tf.gather(bboxes_after_nms, final_idx),
                 tf.gather(cls_after_nms, final_idx),
-                tf.gather(scores_after_nms, final_idx))
+                tf.gather(scores_after_nms, final_idx),
+                final_idx)
