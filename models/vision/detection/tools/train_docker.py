@@ -123,8 +123,8 @@ def main(cfg):
     ######################################################################################
     # Run Model
     ######################################################################################
-    if hvd.rank()==0:
-        tf.profiler.experimental.server.start(6009)
+    #if hvd.rank()==0:
+    #    tf.profiler.experimental.server.start(6009)
     runner.run(tf_datasets, cfg.workflow, cfg.training_epochs)
 
 def parse():

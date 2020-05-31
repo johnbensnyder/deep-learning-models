@@ -58,7 +58,7 @@ class MaskRCNN(TwoStageDetector):
         self.count = 0
 
     def init_weights(self):
-        super(FasterRCNN, self).init_weights(self.pretrained)
+        super(MaskRCNN, self).init_weights(self.pretrained)
         if not self.pretrained:
             if hasattr(self.backbone, 'pretrained'):
                 if not self.backbone.pretrained:
@@ -101,13 +101,13 @@ class MaskRCNN(TwoStageDetector):
                                                                              img_metas)
         else:
             rois_list = proposals_list
-        pooled_regions_list = self.bbox_roi_extractor(
-            (rois_list, rcnn_feature_maps, img_metas), training=training)
-        rcnn_class_logits, rcnn_probs, rcnn_deltas = self.bbox_head(pooled_regions_list,
-                                                                    training=training)
         mask_pooled_regions_list = self.mask_roi_extractor(
             (rois_list, rcnn_feature_maps, img_metas), training=training)
-        rcnn_masks = self.mask_head(mask_pooled_regions_list)
+        bbox_pooled_regions_list = [tf.keras.layers.AveragePooling2D()(i) \
+                                    for i in mask_pooled_regions_list]
+        rcnn_class_logits, rcnn_probs, rcnn_deltas = \
+            self.bbox_head(bbox_pooled_regions_list, training=training)
+        rcnn_masks = self.mask_head(mask_pooled_regions_list, training=training)
         if training:
             rpn_inputs = (rpn_class_logits, rpn_deltas, gt_boxes, gt_class_ids, img_metas)
             rpn_class_loss, rpn_bbox_loss = self.rpn_head.loss(rpn_inputs)
@@ -128,7 +128,7 @@ class MaskRCNN(TwoStageDetector):
                 'rpn_bbox_loss': rpn_bbox_loss,
                 'rcnn_class_loss': rcnn_class_loss,
                 'rcnn_bbox_loss': rcnn_bbox_loss,
-                'mask_loss': mask_loss
+                'rcnn_mask_loss': mask_loss
             }
             return losses_dict
         else:
@@ -144,6 +144,6 @@ class MaskRCNN(TwoStageDetector):
                     'bboxes': detections_list[0][0],
                     'labels': detections_list[0][1],
                     'scores': detections_list[0][2],
-                    'masks': tf.gather(rcnn_masks[0], detections_list[0][3])
+                    #'masks': tf.gather(rcnn_masks[0], detections_list[0][3])
             }
             return detections_dict

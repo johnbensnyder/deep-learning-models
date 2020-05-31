@@ -29,10 +29,11 @@ class MaskHead(tf.keras.Model):
         self.masks = layers.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid", name="mask")
     
     @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs, training=True):
-        masks = []
-        pooled_rois_list = inputs
-        for pooled_rois in pooled_rois_list:
+    def call(self, pooled_rois_list, training=True):
+        #masks = []
+        #pooled_rois_list = inputs
+        pooled_rois = tf.concat(pooled_rois_list, axis=0)
+        '''for pooled_rois in pooled_rois_list:
             x = self.conv_1(pooled_rois)
             x = self.bn_1(x)
             x = self.activation_1(x)
@@ -46,5 +47,18 @@ class MaskHead(tf.keras.Model):
             x = self.bn_4(x)
             x = self.activation_4(x)
             x = self.deconv(x)
-            masks.append(self.masks(x))
-        return masks
+            masks.append(self.masks(x))'''
+        x = self.conv_1(pooled_rois)
+        x = self.bn_1(x)
+        x = self.activation_1(x)
+        x = self.conv_2(x)
+        x = self.bn_2(x)
+        x = self.activation_2(x)
+        x = self.conv_3(x)
+        x = self.bn_3(x)
+        x = self.activation_3(x)
+        x = self.conv_4(x)
+        x = self.bn_4(x)
+        x = self.activation_4(x)
+        x = self.deconv(x)
+        return self.masks(x)

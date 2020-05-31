@@ -48,7 +48,7 @@ class MaskTarget:
         rcnn_target_matchs_list = tf.stack(tf.split(rcnn_target_matchs, splits))
         fg_assignments_list = tf.stack(tf.split(fg_assignments, splits))
         rois = tf.stack(rois_list)
-        masks = tf.stack(masks)
+        masks = tf.stack(tf.split(masks, splits))
         shape = tf.cast(misc.calc_batch_padded_shape(img_metas), tf.float32)
         H = shape[0]
         W = shape[1]

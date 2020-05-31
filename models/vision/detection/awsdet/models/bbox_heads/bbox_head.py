@@ -98,7 +98,7 @@ class BBoxHead(tf.keras.Model):
                                         name='rcnn_delta_cv')
 
     @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs, training=True):
+    def call(self, pooled_rois_list, training=True):
         '''
         Args
         ---
@@ -110,8 +110,7 @@ class BBoxHead(tf.keras.Model):
             rcnn_probs_list: List of [num_rois, num_classes]
             rcnn_deltas_list: List of [num_rois, num_classes, (dy, dx, log(dh), log(dw))]
         '''
-
-        pooled_rois_list = inputs
+        
         pooled_rois = tf.concat(pooled_rois_list, axis=0)
         
         if not self.use_conv:
