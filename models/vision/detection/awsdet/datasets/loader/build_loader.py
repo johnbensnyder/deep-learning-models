@@ -53,7 +53,8 @@ def build_dataloader(dataset,
                 generator, (tf.float32, tf.float32, tf.float32, tf.int32))
         
         tf_dataset = tf_dataset.map(lambda *args: args, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        # tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        tf_dataset = tf_dataset.prefetch(128)
         
         if dataset.mask:
             tf_dataset = tf_dataset.padded_batch(

@@ -35,7 +35,8 @@ class ProposalTarget:
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
         self.num_classes = num_classes
-            
+    
+    @tf.function(experimental_relax_shapes=True)
     def build_targets(self, proposals_list, gt_boxes, gt_class_ids, img_metas):
         '''
         Generates detection targets for images. Subsamples proposals and

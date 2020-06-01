@@ -101,26 +101,24 @@ class MaskRCNN(TwoStageDetector):
                                                                              img_metas)
         else:
             rois_list = proposals_list
-        mask_pooled_regions_list = self.mask_roi_extractor(
+        bbox_pooled_regions_list = self.bbox_roi_extractor(
             (rois_list, rcnn_feature_maps, img_metas), training=training)
-        bbox_pooled_regions_list = [tf.keras.layers.AveragePooling2D()(i) \
-                                    for i in mask_pooled_regions_list]
         rcnn_class_logits, rcnn_probs, rcnn_deltas = \
             self.bbox_head(bbox_pooled_regions_list, training=training)
-        rcnn_masks = self.mask_head(mask_pooled_regions_list, training=training)
+        mask_pooled_regions_list = self.mask_roi_extractor(
+            (rois_list, rcnn_feature_maps, img_metas), training=training)
+        if training:
+            mask_regions, mask_targets = self.mask_target.get_targets(mask_pooled_regions_list, 
+                                                       rois_list, gt_masks, fg_assignments, 
+                                                       rcnn_target_matchs, img_metas)
+            rcnn_masks = self.mask_head(mask_regions)
         if training:
             rpn_inputs = (rpn_class_logits, rpn_deltas, gt_boxes, gt_class_ids, img_metas)
             rpn_class_loss, rpn_bbox_loss = self.rpn_head.loss(rpn_inputs)
             rcnn_inputs = (rcnn_class_logits, rcnn_deltas, rcnn_target_matchs,
                 rcnn_target_deltas, inside_weights, outside_weights) 
             rcnn_class_loss, rcnn_bbox_loss = self.bbox_head.loss(rcnn_inputs)
-            pred_masks, target_masks = self.mask_target(rois_list, rcnn_masks, gt_masks, 
-                                                   fg_assignments, rcnn_target_matchs, 
-                                                   img_metas)
-            mask_loss = self.mask_target.mask_loss(target_masks, 
-                                                   pred_masks, 
-                                                   rcnn_target_matchs,
-                                                   img_metas)
+            mask_loss = self.mask_target.loss(rcnn_masks, mask_targets, rcnn_target_matchs)
             # tf.print('rpn loss', s9-s8)
             # tf.print('roi loss', s10-s9)
             losses_dict = {
