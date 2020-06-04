@@ -6,6 +6,7 @@ import six
 import numpy as np
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
+import pycocotools.mask as mask_util
 from terminaltables import AsciiTable
 from .recall import eval_recalls
 from awsdet.utils.fileio import dump, load
@@ -189,9 +190,9 @@ def segm2json(dataset, results):
             for i in range(bboxes.shape[0]):
                 data = dict()
                 data['image_id'] = img_id
-                data['bbox'] = xyxy2xywh(bboxes[i])
+                data['bbox'] = yxyx2xywh(bboxes[i])
                 data['score'] = float(bboxes[i][4])
-                data['category_id'] = dataset.cat_ids[label]
+                data['category_id'] = dataset.cat_ids[label-1]
                 bbox_json_results.append(data)
 
             # segm results
@@ -205,12 +206,14 @@ def segm2json(dataset, results):
             for i in range(bboxes.shape[0]):
                 data = dict()
                 data['image_id'] = img_id
-                data['bbox'] = xyxy2xywh(bboxes[i])
+                data['bbox'] = yxyx2xywh(bboxes[i])
                 data['score'] = float(mask_score[i])
-                data['category_id'] = dataset.cat_ids[label]
-                if isinstance(segms[i]['counts'], bytes):
-                    segms[i]['counts'] = segms[i]['counts'].decode()
-                data['segmentation'] = segms[i]
+                data['category_id'] = dataset.cat_ids[label-1]
+                data['segmentation'] = mask_util.encode(
+                    np.array(
+                        segms[i][:, :, np.newaxis], order='F',
+                        dtype='uint8'))[0]
+                data['segmentation']['counts'] = data['segmentation']['counts'].decode()
                 segm_json_results.append(data)
     return bbox_json_results, segm_json_results
 
@@ -225,7 +228,6 @@ def results2json(dataset, results, out_file):
     elif isinstance(results[0], tuple):
         json_results = segm2json(dataset, results)
         result_files['bbox'] = '{}.{}.json'.format(out_file, 'bbox')
-        result_files['proposal'] = '{}.{}.json'.format(out_file, 'bbox')
         result_files['segm'] = '{}.{}.json'.format(out_file, 'segm')
         dump(json_results[0], result_files['bbox'])
         dump(json_results[1], result_files['segm'])

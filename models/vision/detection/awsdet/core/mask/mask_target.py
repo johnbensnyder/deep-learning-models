@@ -14,7 +14,8 @@ class MaskTarget:
         batch_length = tf.shape(fg_assignments)[0]//batch_size
         batch_indices = tf.gather(tf.cast(tf.repeat(tf.range(batch_size), batch_length), tf.int32) * 1, 
                                   tf.squeeze(tf.where(rcnn_target_matchs!=0)))
-        gt_indices = tf.cast(tf.gather(fg_assignments * 1, tf.squeeze(tf.where(rcnn_target_matchs!=0))), tf.int32)
+        gt_indices = tf.cast(tf.gather(fg_assignments * 1, 
+                                       tf.squeeze(tf.where(rcnn_target_matchs!=0))), tf.int32)
         gt_indices = tf.transpose(tf.stack([batch_indices, gt_indices]))
         if tf.rank(gt_indices) == 1:
             gt_indices = tf.expand_dims(gt_indices, axis=0)

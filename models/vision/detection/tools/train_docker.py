@@ -74,7 +74,7 @@ def main(cfg):
     # Pass example through so tensor shapes are defined
     _ = model(next(iter(tf_datasets[0][0])))
     model.layers[0].layers[0].load_weights(cfg.weights_path, by_name=False)
-
+    #model.load_weights('/workspace/shared_workspace/output/011/mask_rcnn')
     ######################################################################################
     # Build optimizer and associate scheduler
     ######################################################################################
@@ -102,21 +102,26 @@ def main(cfg):
     ######################################################################################
     # Create Model Runner
     ######################################################################################
+    mask = False
+    if hasattr(cfg.data.val, 'mask'):
+        mask = cfg.data.val.mask
     runner = sagemaker_runner.Runner(model, batch_processor, name=cfg.model_name, 
                                      optimizer=optimizer, work_dir=cfg.work_dir,
                                      logger=get_root_logger(cfg.log_level), amp_enabled=cfg.fp16,
-                                     loss_weights=cfg.loss_weights)
+                                     loss_weights=cfg.loss_weights, with_mask=mask)
     runner.timestamp = int(time())
     ######################################################################################
     # Setup Training Hooks
     ######################################################################################
+    runner.load_checkpoint('/workspace/shared_workspace/output/011/mask_rcnn')
     runner.register_hook(checkpoint.CheckpointHook(interval=cfg.checkpoint_interval, 
                                                    out_dir=cfg.outputs_path, 
                                                    s3_dir=None))
     runner.register_hook(CocoDistEvalmAPHook(cfg.data.val, interval=cfg.evaluation_interval))
     runner.register_hook(iter_timer.IterTimerHook())
     runner.register_hook(text.TextLoggerHook())
-    runner.register_hook(visualizer.Visualizer(cfg.data.val, interval=100, top_k=10))
+    if not mask:
+        runner.register_hook(visualizer.Visualizer(cfg.data.val, interval=100, top_k=10))
     runner.register_hook(tensorboard.TensorboardLoggerHook(log_dir=cfg.outputs_path, 
                                                            interval=10,
                                                            image_interval=100, s3_dir=None))

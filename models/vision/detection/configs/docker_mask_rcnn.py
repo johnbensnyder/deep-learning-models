@@ -144,7 +144,7 @@ model = dict(
         use_conv=True,
         label_smoothing=0.0,
         use_bn=False,
-        soft_nms_sigma=0.5, # 0.0 = hard nms
+        soft_nms_sigma=0.5# 0.0 = hard nms
     ),
     mask_roi_extractor=dict(
         type='PyramidROIAlign',

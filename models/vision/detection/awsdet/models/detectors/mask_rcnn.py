@@ -102,25 +102,23 @@ class MaskRCNN(TwoStageDetector):
         else:
             rois_list = proposals_list
         bbox_pooled_regions_list = self.bbox_roi_extractor(
-            (rois_list, rcnn_feature_maps, img_metas), training=training)
+                                (rois_list, rcnn_feature_maps, img_metas), training=training)
         rcnn_class_logits, rcnn_probs, rcnn_deltas = \
-            self.bbox_head(bbox_pooled_regions_list, training=training)
-        mask_pooled_regions_list = self.mask_roi_extractor(
-            (rois_list, rcnn_feature_maps, img_metas), training=training)
+                            self.bbox_head(bbox_pooled_regions_list, training=training)
         if training:
+            mask_pooled_regions_list = self.mask_roi_extractor(
+                                    (rois_list, rcnn_feature_maps, img_metas), training=training)
+            # maybe try moving this later
             mask_regions, mask_targets = self.mask_target.get_targets(mask_pooled_regions_list, 
                                                        rois_list, gt_masks, fg_assignments, 
                                                        rcnn_target_matchs, img_metas)
             rcnn_masks = self.mask_head(mask_regions)
-        if training:
             rpn_inputs = (rpn_class_logits, rpn_deltas, gt_boxes, gt_class_ids, img_metas)
             rpn_class_loss, rpn_bbox_loss = self.rpn_head.loss(rpn_inputs)
             rcnn_inputs = (rcnn_class_logits, rcnn_deltas, rcnn_target_matchs,
                 rcnn_target_deltas, inside_weights, outside_weights) 
             rcnn_class_loss, rcnn_bbox_loss = self.bbox_head.loss(rcnn_inputs)
             mask_loss = self.mask_target.loss(rcnn_masks, mask_targets, rcnn_target_matchs)
-            # tf.print('rpn loss', s9-s8)
-            # tf.print('roi loss', s10-s9)
             losses_dict = {
                 'rpn_class_loss': rpn_class_loss,
                 'rpn_bbox_loss': rpn_bbox_loss,
@@ -144,4 +142,15 @@ class MaskRCNN(TwoStageDetector):
                     'scores': detections_list[0][2],
                     #'masks': tf.gather(rcnn_masks[0], detections_list[0][3])
             }
+            # clean this up
+            mask_pooled_regions_list = self.mask_roi_extractor(
+                                        ([detections_dict['bboxes']], 
+                                         rcnn_feature_maps, img_metas), training=training)
+            rcnn_masks = self.mask_head(mask_pooled_regions_list[0])
+            '''print("\n\n\n\n\n\n")
+            print(detections_dict)
+            print("\n\n\n\n\n\n")'''
+            mask_inds = tf.transpose(tf.stack([tf.range(100), detections_dict['labels']]))
+            rcnn_masks = tf.expand_dims(tf.gather_nd(tf.transpose(rcnn_masks, [0, 3, 1, 2]), mask_inds), axis=-1)
+            detections_dict['masks'] = rcnn_masks
             return detections_dict

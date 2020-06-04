@@ -49,7 +49,8 @@ class Runner(object):
                                 'rpn_bbox_loss': 1., 
                                 'rcnn_class_loss': 1., 
                                 'rcnn_bbox_loss': 1.,
-                                'reg_loss': 1.}):
+                                'reg_loss': 1.},
+                 with_mask=False):
         assert callable(batch_processor)
         self.model = model
         self.optimizer = optimizer 
@@ -85,6 +86,7 @@ class Runner(object):
         self._max_epochs = 0
         self._max_iters = 0
         self._amp_enabled = amp_enabled
+        self._mask=with_mask
 
     @property
     def model_name(self):
@@ -142,6 +144,11 @@ class Runner(object):
     def max_iters(self):
         """int: Maximum training iterations."""
         return self._max_iters
+    
+    @property
+    def mask(self):
+        """return bool for mask"""
+        return self._mask
     
     def current_lr(self):
         return float(self.optimizer.learning_rate(self.optimizer.iterations).numpy())
@@ -272,11 +279,12 @@ class Runner(object):
 
     def train(self, tf_dataset, **kwargs):
         self.mode = 'train'
-        self.num_examples = tf_dataset[1]
+        # for testing make sure to change back
+        self.num_examples = 20 # tf_dataset[1]
         self.broadcast = True
         self._max_iters = self._max_epochs * self.num_examples
         self.call_hook('before_train_epoch')
-        for i, data_batch in enumerate(tf_dataset[0]):
+        for i, data_batch in enumerate(tf_dataset[0].take(self.num_examples)):
             self._inner_iter = i
             self.call_hook('before_train_iter')
             outputs = self.run_train_step(data_batch)
