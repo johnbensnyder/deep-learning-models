@@ -1,37 +1,90 @@
-import tensorflow as tf
+import numpy as np
+import cv2
+from collections import defaultdict
+import pycocotools.mask as mask_util
 
-def mask2result(bboxes, masks, labels, meta, threshold=0.25, num_classes=81):
-    '''
-    Reformat masks from model output to be used for eval
-    '''
-    height, width = (bboxes[:,2]-bboxes[:,0], bboxes[:,3]-bboxes[:,1])
-    sizes = tf.cast(tf.transpose(tf.stack([height, width])), tf.int32)
-    img_size = meta[:2]
-    if meta[-1]:
-        masks = tf.reverse(masks, axis=[2])
-    mask_list = []
-    bboxes = tf.split(bboxes, 100)
-    for idx in range(tf.shape(masks)[0]):
-        mask = masks[idx]
-        size = sizes[idx]
-        bbox = bboxes[idx][0]
-        bbox = tf.reshape(tf.transpose(tf.stack([tf.clip_by_value(bbox[0::2], 0, img_size[0]), 
-                                         tf.clip_by_value(bbox[1::2], 0, img_size[1])])), [-1])
-        if tf.math.multiply(*size)==0:
-            mask_list.append(tf.cast(-tf.ones(tf.cast(img_size, tf.int32)), dtype=tf.int32))
-        else:
-            a_mask = tf.image.resize(mask, size)
-            a_mask = tf.squeeze(a_mask>threshold)
-            a_mask = tf.cast(a_mask, tf.int32)
-            if a_mask.ndim!=2:
-                a_mask = tf.expand_dims(a_mask, axis=0)
-            a_mask = tf.pad(a_mask, [[tf.cast(bbox[0], tf.int32), 
-                                      tf.cast(img_size[0]-bbox[2], tf.int32)],
-                                     [tf.cast(bbox[1], tf.int32), 
-                                      tf.cast(img_size[1]-bbox[3], tf.int32)]])
-        mask_list.append(a_mask)
-    
-    mask_list_of_lists = [[]]*num_classes
+def box_clip(bboxes, img_size):
+    y1, x1, y2, x2 = np.split(bboxes, 4, axis=1)
+    cy1 = np.clip(y1, 0, img_size[0])
+    cx1 = np.clip(x1, 0, img_size[1])
+    cy2 = np.clip(y2, 0, img_size[0])
+    cx2 = np.clip(x2, 0, img_size[1])
+    clipped_boxes = np.transpose(np.squeeze(np.stack([cy1, cx1, cy2, cx2])))
+    '''cheight = cy2 - cy1
+    cwidth = cx2 - cx1
+    crop_height_start = np.abs(y1)
+    crop_width_start = np.abs(x1)'''
+    return clipped_boxes
+
+def compute_pads(bboxes, img_size):
+    y1, x1, y2, x2 = np.split(bboxes, 4, axis=1)
+    y1_pad = y1
+    x1_pad = x1
+    y2_pad = img_size[0] - y2
+    x2_pad = img_size[1] - x2
+    pads = np.transpose(np.squeeze(np.stack([y1_pad, x1_pad, y2_pad, x2_pad])))
+    return pads
+
+def fit_pad(mask, pad):
+    mask = np.pad(mask, ((pad[0], pad[2]), (pad[1], pad[3])))
+    return mask
+
+def fit_mask_to_image(mask, cv2_size, clipped_box_size, 
+                      clipped_boxes_np, pad, img_shape):
+    if np.multiply(*clipped_box_size)==0:
+        return np.zeros(img_shape, dtype=np.int32)
+    mask = cv2.resize(mask, tuple(cv2_size), interpolation=cv2.INTER_NEAREST)
+    if mask.ndim==1:
+        mask = np.expand_dims(mask, axis=np.argmin(clipped_box_size))
+    mask = mask[:clipped_box_size[0],:clipped_box_size[1]]
+    #print('\n')
+    #print(mask.shape)
+    mask = fit_pad(mask, pad)
+    #print(mask.shape)
+    #print(clipped_boxes_np)
+    return mask
+
+def reshape_by_labels(mask_list, labels, num_classes=81):
+    list_of_lists = [[]]*num_classes
     for mask, label in zip(mask_list, labels):
-        mask_list_of_lists[label.numpy()].append(mask.numpy())
-    return mask_list_of_lists
+        list_of_lists[label].append(mask)
+    return list_of_lists
+
+def mask2result(bboxes, masks, labels, meta, num_classes=81, threshold=0.5):
+    # convert tensors to numpy
+    # round bboxes to nearest int
+    meta = np.squeeze(meta)
+    img_heights, img_widths = meta[:2].astype(np.int32)
+    bboxes_np = np.round(bboxes).astype(np.int32)
+    clipped_boxes_np = box_clip(bboxes_np, (img_heights, img_widths))
+    masks_np = (masks.numpy()>threshold).astype(np.int32)
+    labels_np = labels.numpy()
+    if meta[-1]==1:
+        masks_np = np.flip(masks_np, axis=2)
+    bbox_heights = bboxes_np[:,2]-bboxes_np[:,0]
+    bbox_clipped_heights = clipped_boxes_np[:,2]-clipped_boxes_np[:,0]
+    bbox_widths = bboxes_np[:,3]-bboxes_np[:,1]
+    bbox_clipped_widths = clipped_boxes_np[:,3]-clipped_boxes_np[:,1]
+    bbox_sizes = np.transpose(np.stack([bbox_heights, bbox_widths]))
+    #cv2 needs dims in opposite direction
+    cv2_sizes = np.flip(bbox_sizes, axis=1)
+    bbox_clipped_sizes = np.squeeze(np.transpose([np.stack([bbox_clipped_heights,
+                                                 bbox_clipped_widths])]))
+    pads = compute_pads(clipped_boxes_np, (img_heights, img_widths))
+    
+    mask_list = []
+    for idx in range(100):
+        #print(idx)
+        mask_list.append(fit_mask_to_image(masks_np[idx],
+                                           cv2_sizes[idx],
+                                           bbox_clipped_sizes[idx],
+                                           clipped_boxes_np[idx],
+                                           pads[idx],
+                                           (img_heights, img_widths)))
+    lists = defaultdict(list)
+    for i,j in enumerate(labels_np):
+        lists[j].append(mask_util.encode(
+                    np.array(
+                        mask_list[i][:, :, np.newaxis], order='F',
+                        dtype='uint8'))[0])
+    return lists

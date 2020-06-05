@@ -209,10 +209,7 @@ def segm2json(dataset, results):
                 data['bbox'] = yxyx2xywh(bboxes[i])
                 data['score'] = float(mask_score[i])
                 data['category_id'] = dataset.cat_ids[label-1]
-                data['segmentation'] = mask_util.encode(
-                    np.array(
-                        segms[i][:, :, np.newaxis], order='F',
-                        dtype='uint8'))[0]
+                data['segmentation'] = segms[i]
                 data['segmentation']['counts'] = data['segmentation']['counts'].decode()
                 segm_json_results.append(data)
     return bbox_json_results, segm_json_results
