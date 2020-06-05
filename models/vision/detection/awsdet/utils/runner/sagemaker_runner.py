@@ -280,7 +280,7 @@ class Runner(object):
     def train(self, tf_dataset, **kwargs):
         self.mode = 'train'
         # for testing make sure to change back
-        self.num_examples = 20 # tf_dataset[1]
+        self.num_examples = tf_dataset[1]
         self.broadcast = True
         self._max_iters = self._max_epochs * self.num_examples
         self.call_hook('before_train_epoch')
