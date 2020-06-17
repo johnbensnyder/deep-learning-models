@@ -128,7 +128,7 @@ def main(cfg):
     ######################################################################################
     #if hvd.rank()==0:
     #    tf.profiler.experimental.server.start(6009)
-    runner.load_checkpoint('/workspace/shared_workspace/weights/011/mask_rcnn')
+    runner.load_checkpoint('/workspace/shared_workspace/weights/003/mask_rcnn')
     runner.run(tf_datasets, cfg.workflow, cfg.training_epochs)
 
 def parse():

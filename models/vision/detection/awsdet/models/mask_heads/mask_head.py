@@ -7,11 +7,7 @@ class MaskHead(tf.keras.Model):
     def __init__(self, num_classes, depth=4):
         super().__init__()
         self.depth = depth
-        input_shape = tf.keras.Input([28, 28, 1])
-        self.conv_0 = tf.keras.layers.Conv2D(256, (3, 3), 
-                                            padding="same", activation='relu', 
-                                            name="mask_conv_0")
-        for layer in range(1, self.depth):
+        for layer in range(self.depth):
             self.__dict__['conv_{}'.format(layer)] = tf.keras.layers.Conv2D(256, (3, 3), 
                                                     padding="same", activation='relu', 
                                                     name="mask_conv_{}".format(layer))
@@ -105,7 +101,7 @@ class MaskHead(tf.keras.Model):
         w = x2 - x1
         if tf.math.multiply(h, w)<=0:
             return tf.zeros((img_meta[6], img_meta[7], 1), dtype=tf.int32)
-        mask_resize = tf.cast(tf.image.resize(mask, (h, w), method='nearest')>0.5, tf.int32)
+        mask_resize = tf.cast(tf.image.resize(mask, (h, w), method='nearest')>threshold, tf.int32)
         pad = [[y1, img_meta[6]-y2], [x1, img_meta[7]-x2], [0,0]]
         mask_resize = tf.pad(mask_resize, pad)
         return mask_resize
