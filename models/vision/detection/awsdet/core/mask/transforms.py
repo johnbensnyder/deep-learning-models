@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from collections import defaultdict
 import pycocotools.mask as mask_util
+import tensorflow as tf
 
 def box_clip(bboxes, img_size):
     y1, x1, y2, x2 = np.split(bboxes, 4, axis=1)
@@ -50,7 +51,28 @@ def reshape_by_labels(mask_list, labels, num_classes=81):
         list_of_lists[label].append(mask)
     return list_of_lists
 
-def mask2result(bboxes, masks, labels, meta, num_classes=81, threshold=0.5):
+def mask2result(masks, labels, meta, num_classes=81, threshold=0.5):
+    meta = np.squeeze(meta)
+    img_heights, img_widths = meta[:2].astype(np.int32)
+    unpadded_height = tf.cast(meta[3], tf.int32)
+    unpadded_width = tf.cast(meta[4], tf.int32)
+    orig_height = tf.cast(meta[0], tf.int32)
+    orig_width = tf.cast(meta[1], tf.int32)
+    masks = masks[:,:unpadded_height,:unpadded_width, :]
+    masks = tf.image.resize(masks, (orig_height, orig_width), method='nearest')
+    masks_np = np.squeeze((masks.numpy()>threshold).astype(np.int32))
+    labels_np = labels.numpy()
+    if meta[-1]==1:
+        masks_np = np.flip(masks_np, axis=2)
+    lists = defaultdict(list)
+    for i,j in enumerate(labels_np):
+        lists[j].append(mask_util.encode(
+                    np.array(
+                        masks_np[i][:, :, np.newaxis], order='F',
+                        dtype='uint8'))[0])
+    return lists
+
+'''def mask2result(bboxes, masks, labels, meta, num_classes=81, threshold=0.5):
     # convert tensors to numpy
     # round bboxes to nearest int
     meta = np.squeeze(meta)
@@ -87,4 +109,4 @@ def mask2result(bboxes, masks, labels, meta, num_classes=81, threshold=0.5):
                     np.array(
                         mask_list[i][:, :, np.newaxis], order='F',
                         dtype='uint8'))[0])
-    return lists
+    return lists'''

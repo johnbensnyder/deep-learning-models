@@ -67,3 +67,51 @@ class MaskTarget:
         pred = tf.reshape(pred, [-1])
         pred = tf.transpose(tf.stack([1 - pred, pred]))
         return self.loss_func(target, pred)
+    
+@tf.function(experimental_relax_shapes=True)
+def gather_mask_predictions(rcnn_masks, rcnn_target_matchs):
+    target_length = tf.range(tf.shape(rcnn_target_matchs)[0])
+    mask_idx = tf.transpose(tf.stack([target_length, rcnn_target_matchs]))
+    masks = tf.gather_nd(rcnn_masks, mask_idx)
+    masks = tf.expand_dims(masks, axis=[-1])
+    return masks
+
+def compute_fg_offset(fg_assignments, gt_masks):
+    fg_size = tf.shape(fg_assignments)
+    roi_length = fg_size//tf.shape(gt_masks)[0]
+    num_masks = tf.shape(gt_masks)[1]
+    idx = tf.range(tf.shape(fg_assignments)[0])
+    idx_multiplier = (idx//roi_length)*num_masks
+    fg_adjusted = tf.cast(fg_assignments, tf.int32) + idx_multiplier
+    return fg_adjusted
+
+def reshape_masks(gt_masks):
+    batch_size = tf.shape(gt_masks)[0]
+    num_masks = tf.shape(gt_masks)[1]
+    return tf.reshape(gt_masks, [batch_size*num_masks,
+                                 tf.shape(gt_masks)[2], 
+                                 tf.shape(gt_masks)[3], 1])
+
+@tf.function(experimental_relax_shapes=True)
+def crop_masks(rois_list, fg_assignments, gt_masks, img_metas, size=(28, 28)):
+    H = tf.reduce_mean(img_metas[...,6])
+    W = tf.reduce_mean(img_metas[...,7])
+    rois = tf.concat(rois_list, axis=0) / tf.stack([H, W, H ,W])
+    gt_masks_reshape = reshape_masks(gt_masks)
+    fg_adjusted = compute_fg_offset(fg_assignments, gt_masks)
+    cropped_masks = tf.image.crop_and_resize(gt_masks_reshape,
+                         rois,
+                         fg_adjusted,
+                         size)
+    return cropped_masks
+
+@tf.function(experimental_relax_shapes=True)
+def mask_loss(masks_true, masks_pred, rcnn_target_matchs, 
+              loss_func = tf.keras.losses.SparseCategoricalCrossentropy()):
+    masks_pred = tf.boolean_mask(masks_pred, rcnn_target_matchs!=0)
+    masks_true = tf.boolean_mask(masks_true, rcnn_target_matchs!=0)
+    masks_pred = tf.reshape(masks_pred, [-1])
+    masks_pred = tf.transpose(tf.stack([1 - masks_pred, masks_pred]))
+    masks_true = tf.reshape(masks_true, [-1])
+    loss = loss_func(masks_true, masks_pred)
+    return loss

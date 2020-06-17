@@ -280,11 +280,14 @@ class Runner(object):
     def train(self, tf_dataset, **kwargs):
         self.mode = 'train'
         # for testing make sure to change back
-        self.num_examples = tf_dataset[1]
+        self.num_examples = 20 #tf_dataset[1]
         self.broadcast = True
         self._max_iters = self._max_epochs * self.num_examples
         self.call_hook('before_train_epoch')
         for i, data_batch in enumerate(tf_dataset[0].take(self.num_examples)):
+            if self.rank==0:
+                if self._iter==350:
+                    tf.profiler.experimental.start('/workspace/shared_workspace/output/')
             self._inner_iter = i
             self.call_hook('before_train_iter')
             outputs = self.run_train_step(data_batch)
@@ -300,6 +303,9 @@ class Runner(object):
             self.outputs = outputs
             self.call_hook('after_train_iter')
             self._iter += 1
+            if self.rank==0:
+                if self._iter==360:
+                    tf.profiler.experimental.stop('/workspace/shared_workspace/output/')
             if i > 0 and i % 1000 == 0:
                 self.run_eval_step(data_batch)
             if i+1 >= self.num_examples: # for case where num_examples is deliberately made small to test

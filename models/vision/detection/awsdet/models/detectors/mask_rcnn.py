@@ -54,7 +54,7 @@ class MaskRCNN(TwoStageDetector):
             positive_fraction=0.25,
             pos_iou_thr=0.5,
             neg_iou_thr=0.1)
-        self.mask_target = mask_target.MaskTarget()
+        #self.mask_target = mask_target.MaskTarget()
         self.count = 0
 
     def init_weights(self):
@@ -108,17 +108,14 @@ class MaskRCNN(TwoStageDetector):
         if training:
             mask_pooled_regions_list = self.mask_roi_extractor(
                                     (rois_list, rcnn_feature_maps, img_metas), training=training)
-            # maybe try moving this later
-            mask_regions, mask_targets = self.mask_target.get_targets(mask_pooled_regions_list, 
-                                                       rois_list, gt_masks, fg_assignments, 
-                                                       rcnn_target_matchs, img_metas)
-            rcnn_masks = self.mask_head(mask_regions)
+            rcnn_masks = self.mask_head(mask_pooled_regions_list)
+            mask_loss = self.mask_head.loss(rcnn_masks, rcnn_target_matchs, rois_list,
+                                     fg_assignments, gt_masks, img_metas)
             rpn_inputs = (rpn_class_logits, rpn_deltas, gt_boxes, gt_class_ids, img_metas)
             rpn_class_loss, rpn_bbox_loss = self.rpn_head.loss(rpn_inputs)
             rcnn_inputs = (rcnn_class_logits, rcnn_deltas, rcnn_target_matchs,
                 rcnn_target_deltas, inside_weights, outside_weights) 
             rcnn_class_loss, rcnn_bbox_loss = self.bbox_head.loss(rcnn_inputs)
-            mask_loss = self.mask_target.loss(rcnn_masks, mask_targets, rcnn_target_matchs)
             losses_dict = {
                 'rpn_class_loss': rpn_class_loss,
                 'rpn_bbox_loss': rpn_bbox_loss,
@@ -128,9 +125,6 @@ class MaskRCNN(TwoStageDetector):
             }
             return losses_dict
         else:
-            detections_dict = {}
-            # AS: currently we limit eval to 1 image bs per GPU - TODO: extend to multiple
-            # detections_list will, at present, have len 1
             detections_list = self.bbox_head.get_bboxes(rcnn_probs, 
                                                         rcnn_deltas, 
                                                         rois_list, 
@@ -140,17 +134,13 @@ class MaskRCNN(TwoStageDetector):
                     'bboxes': detections_list[0][0],
                     'labels': detections_list[0][1],
                     'scores': detections_list[0][2],
-                    #'masks': tf.gather(rcnn_masks[0], detections_list[0][3])
             }
             # clean this up
+            mask_boxes = [tf.round(detections_dict['bboxes'])]
             mask_pooled_regions_list = self.mask_roi_extractor(
-                                        ([detections_dict['bboxes']], 
+                                        (mask_boxes, 
                                          rcnn_feature_maps, img_metas), training=training)
-            rcnn_masks = self.mask_head(mask_pooled_regions_list[0])
-            '''print("\n\n\n\n\n\n")
-            print(detections_dict)
-            print("\n\n\n\n\n\n")'''
-            mask_inds = tf.transpose(tf.stack([tf.range(100), detections_dict['labels']]))
-            rcnn_masks = tf.expand_dims(tf.gather_nd(tf.transpose(rcnn_masks, [0, 3, 1, 2]), mask_inds), axis=-1)
-            detections_dict['masks'] = rcnn_masks
+            rcnn_masks = self.mask_head(mask_pooled_regions_list)
+            rcnn_masks = self.mask_head.gather_mask_predictions(rcnn_masks, detections_dict['labels'])
+            detections_dict['masks'] = self.mask_head.mold_masks(rcnn_masks, mask_boxes[0], img_metas[0])
             return detections_dict

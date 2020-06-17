@@ -119,7 +119,7 @@ def main(cfg):
     runner.register_hook(CocoDistEvalmAPHook(cfg.data.val, interval=cfg.evaluation_interval))
     runner.register_hook(iter_timer.IterTimerHook())
     runner.register_hook(text.TextLoggerHook())
-    runner.register_hook(visualizer.Visualizer(cfg.data.val, interval=100, top_k=10))
+    #runner.register_hook(visualizer.Visualizer(cfg.data.val, interval=100, top_k=10))
     runner.register_hook(tensorboard.TensorboardLoggerHook(log_dir=cfg.outputs_path, 
                                                            interval=10,
                                                            image_interval=100, s3_dir=None))
@@ -128,6 +128,7 @@ def main(cfg):
     ######################################################################################
     #if hvd.rank()==0:
     #    tf.profiler.experimental.server.start(6009)
+    runner.load_checkpoint('/workspace/shared_workspace/weights/011/mask_rcnn')
     runner.run(tf_datasets, cfg.workflow, cfg.training_epochs)
 
 def parse():
