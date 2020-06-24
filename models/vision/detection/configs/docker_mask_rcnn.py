@@ -154,7 +154,10 @@ model = dict(
     ),
     mask_head=dict(
         type='MaskHead',
-        num_classes=81
+        num_classes=81,
+        num_rois=512,
+        weight_decay=1e-5,
+        batch_norm=False,
     )
 )
 

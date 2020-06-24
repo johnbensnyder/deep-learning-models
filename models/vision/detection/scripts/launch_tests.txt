@@ -1,9 +1,9 @@
-mpirun -np 4 -H localhost:4 \
+mpirun -np 8 -H localhost:8 \
     --allow-run-as-root \
     python /workspace/shared_workspace/deep-learning-models/models/vision/detection/tools/train_docker.py \
            --configuration /workspace/shared_workspace/deep-learning-models/models/vision/detection/configs/docker_mask_rcnn.py \
            --base_learning_rate 15e-3 \
-           --batch_size_per_device 1 \
+           --batch_size_per_device 2 \
            --fp16 True \
            --schedule 1x \
            --warmup_init_lr_scale 3 \

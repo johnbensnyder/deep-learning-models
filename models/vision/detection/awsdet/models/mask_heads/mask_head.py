@@ -4,78 +4,119 @@ from ..registry import HEADS
 
 @HEADS.register_module
 class MaskHead(tf.keras.Model):
-    def __init__(self, num_classes, depth=4):
+    def __init__(self, num_classes, num_rois=512, depth=4, weight_decay=1e-6, batch_norm=False, epsilon=1e-3):
         super().__init__()
         self.depth = depth
-        for layer in range(self.depth):
+        self.num_rois = num_rois
+        self.batch_norm = batch_norm
+        self.epsilon = epsilon
+        '''for layer in range(self.depth):
             self.__dict__['conv_{}'.format(layer)] = tf.keras.layers.Conv2D(256, (3, 3), 
                                                     padding="same", activation='relu', 
-                                                    name="mask_conv_{}".format(layer))
-        self.deconv = tf.keras.layers.Conv2DTranspose(256, (2, 2), strides=2, 
-                                                    activation="relu",
+                                                    name="mask_conv_{}".format(layer))'''
+        self._conv_0 = tf.keras.layers.Conv2D(256, (3, 3),
+                                             padding="same",
+                                             kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                             name="mask_conv_0")
+        if self.batch_norm:
+            self._conv_0_bn = layers.BatchNormalization(name='conv_0_bn')
+        self._conv_1 = tf.keras.layers.Conv2D(256, (3, 3),
+                                             padding="same",
+                                             kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                             name="mask_conv_1")
+        if self.batch_norm:
+            self._conv_1_bn = layers.BatchNormalization(name='conv_1_bn')
+        self._conv_2 = tf.keras.layers.Conv2D(256, (3, 3),
+                                             padding="same",
+                                             kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                             name="mask_conv_2")
+        if self.batch_norm:
+            self._conv_2_bn = layers.BatchNormalization(name='conv_2_bn')
+        self._conv_3 = tf.keras.layers.Conv2D(256, (3, 3),
+                                             padding="same",
+                                             kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                             name="mask_conv_3")
+        if self.batch_norm:
+            self._conv_3_bn = layers.BatchNormalization(name='conv_3_bn')
+        self._deconv = tf.keras.layers.Conv2DTranspose(256, (2, 2), strides=2, 
+                                                    kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                                     name="mask_deconv")
-        self.masks = tf.keras.layers.Conv2D(num_classes, (1, 1), 
-                                                strides=1, activation="sigmoid", name="mask")
-        self.loss_func = tf.keras.losses.SparseCategoricalCrossentropy()
+        self._masks = tf.keras.layers.Conv2D(num_classes, (1, 1),
+                                             kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
+                                             strides=1, activation="sigmoid", name="mask")
             
     @tf.function(experimental_relax_shapes=True)
-    def call(self, mask_rois, training=True):
-        mask_rois = tf.concat(mask_rois, axis=0)
-        for layer in range(self.depth):
-            mask_rois = self.__dict__['conv_{}'.format(layer)](mask_rois)
-        mask_rois = self.deconv(mask_rois)
-        return self.masks(mask_rois)
+    def call(self, mask_rois_list, training=True):
+        mask_list = []
+        for mask_rois in mask_rois_list:
+            mask_rois = self._conv_0(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_0_bn(mask_rois)
+            mask_rois = tf.keras.activations.relu(mask_rois)
+            mask_rois = self._conv_1(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_1_bn(mask_rois)
+            mask_rois = tf.keras.activations.relu(mask_rois)
+            mask_rois = self._conv_2(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_2_bn(mask_rois)
+            mask_rois = tf.keras.activations.relu(mask_rois)
+            mask_rois = self._conv_3(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_3_bn(mask_rois)
+            mask_rois = tf.keras.activations.relu(mask_rois)
+            mask_rois = self._deconv(mask_rois)
+            mask_rois = tf.keras.activations.relu(mask_rois)
+            mask_rois = self._masks(mask_rois)
+            mask_rois = tf.clip_by_value(mask_rois, self.epsilon, 1-self.epsilon)
+            mask_list.append(mask_rois)
+        return mask_list
     
     @tf.function(experimental_relax_shapes=True)
-    def gather_mask_predictions(self, rcnn_masks, rcnn_target_matchs):
-        rcnn_masks = tf.transpose(rcnn_masks, [0, 3, 1, 2])
-        target_length = tf.range(tf.shape(rcnn_target_matchs)[0])
-        mask_idx = tf.transpose(tf.stack([target_length, rcnn_target_matchs]))
-        masks = tf.gather_nd(rcnn_masks, mask_idx)
-        masks = tf.expand_dims(masks, axis=[-1])
-        return masks
-
-    def compute_fg_offset(self, fg_assignments, gt_masks):
-        fg_size = tf.shape(fg_assignments)
-        roi_length = fg_size//tf.shape(gt_masks)[0]
-        num_masks = tf.shape(gt_masks)[1]
-        idx = tf.range(tf.shape(fg_assignments)[0])
-        idx_multiplier = (idx//roi_length)*num_masks
-        fg_adjusted = tf.cast(fg_assignments, tf.int32) + idx_multiplier
-        return fg_adjusted
-
-    def reshape_masks(self, gt_masks):
-        batch_size = tf.shape(gt_masks)[0]
-        num_masks = tf.shape(gt_masks)[1]
-        return tf.reshape(gt_masks, [batch_size*num_masks,
-                                     tf.shape(gt_masks)[2], 
-                                     tf.shape(gt_masks)[3], 1])
+    def gather_mask_predictions(self, pred_mask, rcnn_target_matchs):
+        pred_mask = tf.boolean_mask(pred_mask, rcnn_target_matchs!=0)
+        mask_indices = tf.range(tf.shape(rcnn_target_matchs)[0])
+        mask_indices = tf.transpose(tf.stack([mask_indices, rcnn_target_matchs]))
+        mask_indices = tf.boolean_mask(mask_indices, rcnn_target_matchs!=0)
+        pred_mask = tf.transpose(pred_mask, [0, 3, 1, 2])
+        pred_mask = tf.gather_nd(pred_mask, mask_indices)
+        pred_mask = tf.expand_dims(pred_mask, axis=[-1])
+        return pred_mask
 
     @tf.function(experimental_relax_shapes=True)
-    def crop_masks(self, rois_list, fg_assignments, gt_masks, img_metas, size=(28, 28)):
+    def crop_masks(self, rois, fg_assignments, gt_masks, img_metas, size=(28, 28)):
         H = tf.reduce_mean(img_metas[...,6])
         W = tf.reduce_mean(img_metas[...,7])
-        rois = tf.concat(rois_list, axis=0) / tf.stack([H, W, H ,W])
-        gt_masks_reshape = self.reshape_masks(gt_masks)
-        fg_adjusted = self.compute_fg_offset(fg_assignments, gt_masks)
-        cropped_masks = tf.image.crop_and_resize(gt_masks_reshape,
-                             rois,
-                             fg_adjusted,
+        norm_rois = tf.concat(rois, axis=0) / tf.stack([H, W, H ,W])
+        cropped_masks = tf.image.crop_and_resize(gt_masks,
+                             norm_rois,
+                             fg_assignments,
                              size,
                              method='nearest')
+        #cropped_masks = tf.squeeze(cropped_masks)
         return cropped_masks
-    
+
     @tf.function(experimental_relax_shapes=True)
-    def loss(self, masks_pred, rcnn_target_matchs, rois_list, 
-                  fg_assignments, gt_masks, img_metas):
+    def _mask_loss_single(self, masks_pred, rcnn_target_matchs, rois, 
+                      fg_assignments, gt_masks, img_metas):
         masks_pred = self.gather_mask_predictions(masks_pred, rcnn_target_matchs)
-        masks_true = self.crop_masks(rois_list, fg_assignments, gt_masks, img_metas)
-        masks_pred = tf.boolean_mask(masks_pred, rcnn_target_matchs!=0)
+        masks_true = self.crop_masks(rois, fg_assignments, gt_masks, img_metas)
         masks_true = tf.boolean_mask(masks_true, rcnn_target_matchs!=0)
-        masks_pred = tf.reshape(masks_pred, [-1])
-        masks_pred = tf.transpose(tf.stack([1 - masks_pred, masks_pred]))
-        masks_true = tf.reshape(masks_true, [-1])
-        loss = self.loss_func(masks_true, masks_pred)
+        loss = tf.math.reduce_mean(tf.losses.binary_crossentropy(masks_true, masks_pred))
+        return loss
+
+    @tf.function(experimental_relax_shapes=True)
+    def mask_loss(self, masks_pred_list, rcnn_target_matchs, rois_list, 
+                      fg_assignments, gt_masks, img_metas):
+        batch_size = tf.shape(img_metas)[0]
+        fg_assignments = tf.cast(tf.reshape(fg_assignments, [batch_size, self.num_rois]), tf.int32)
+        rcnn_target_matchs = tf.reshape(rcnn_target_matchs, [batch_size, self.num_rois])
+        gt_masks = tf.expand_dims(gt_masks, [-1])
+        loss = 0
+        for i in range(2):
+            loss+=self._mask_loss_single(masks_pred_list[i], rcnn_target_matchs[i],
+                                    rois_list[i], fg_assignments[i], gt_masks[i],
+                                    img_metas[i])
         return loss
     
     @tf.function(experimental_relax_shapes=True)

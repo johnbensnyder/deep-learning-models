@@ -66,7 +66,6 @@ def main(cfg):
         cfg.model['bbox_head']['use_bn'] = cfg.use_rcnn_bn
     if cfg.use_conv:
         cfg.model['bbox_head']['use_conv'] = cfg.use_conv
-
     cfg.schedule = args.schedule
     model = build_detector(cfg.model,
                            train_cfg=cfg.train_cfg,
@@ -88,17 +87,20 @@ def main(cfg):
     if cfg.schedule == '1x':
         scheduler = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
             [steps_per_epoch * 8, steps_per_epoch * 10],
-            [scaled_learning_rate, scaled_learning_rate*0.1, scaled_learning_rate*0.01])
+            [scaled_learning_rate, scaled_learning_rate/10., scaled_learning_rate/100.])
     elif cfg.schedule == 'cosine':
         scheduler = tf.keras.experimental.CosineDecayRestarts(
             initial_learning_rate=scaled_learning_rate,
             first_decay_steps=12*steps_per_epoch, t_mul=1, m_mul=1) #0-1-13
+    elif cfg.schedule == 'exp':
+        scheduler = tf.keras.optimizers.schedules.ExponentialDecay(scaled_learning_rate, steps_per_epoch*3, 0.5)
     else:
         raise NotImplementedError
     warmup_init_lr = 1.0 / cfg.warmup_init_lr_scale * scaled_learning_rate
     scheduler = WarmupScheduler(scheduler, warmup_init_lr, cfg.warmup_steps)
     # FIXME: currently hardcoded to SGD
     optimizer = tf.keras.optimizers.SGD(scheduler, momentum=0.9, nesterov=False)
+    #optimizer = tf.keras.optimizers.Adam(scheduler)
     if cfg.fp16:
         optimizer = tf.train.experimental.enable_mixed_precision_graph_rewrite(optimizer, loss_scale='dynamic')
     ######################################################################################
@@ -128,7 +130,10 @@ def main(cfg):
     ######################################################################################
     #if hvd.rank()==0:
     #    tf.profiler.experimental.server.start(6009)
-    runner.load_checkpoint('/workspace/shared_workspace/weights/003/mask_rcnn')
+    #runner.load_checkpoint('/workspace/shared_workspace/output_spike_2/007/mask_rcnn')
+    #runner.model.layers[0].trainable = False
+    #runner.model.layers[1].trainable = False
+    #runner.model.layers[2].trainable = False
     runner.run(tf_datasets, cfg.workflow, cfg.training_epochs)
 
 def parse():
