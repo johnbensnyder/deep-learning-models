@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # -*- coding: utf-8 -*-
 from .base import BaseDetector
+from .single_stage import SingleStageDetector
 from .two_stage import TwoStageDetector
 from .faster_rcnn import FasterRCNN
+from .retinanet import RetinaNet
+from .mask_rcnn import MaskRCNN
 
-__all__ = ['FasterRCNN', 'BaseDetector', 'TwoStageDetector']
+__all__ = ['FasterRCNN', 'BaseDetector', 'TwoStageDetector', 'RetinaNet', 'MaskRCNN']
+

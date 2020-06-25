@@ -8,8 +8,6 @@ from pycocotools.coco import COCO
 from .registry import DATASETS
 from . import transforms, utils
 
-#TODO: Make interface generic, derive from a base class with abstract methods
-#TODO: Make transformations into their own pipeline classes
 
 @DATASETS.register_module
 class CocoDataset(object):
@@ -18,12 +16,13 @@ class CocoDataset(object):
                  subset,
                  flip_ratio=0,
                  pad_mode='fixed',
-                 mean=(0, 0, 0),
-                 std=(1, 1, 1),
+                 mean=(0., 0., 0.),
+                 std=(1., 1., 1.),
                  preproc_mode='caffe',
                  scale=(1024, 800),
                  train=False,
-                 debug=False):
+                 debug=False,
+                 mask=False):
         '''Load a subset of the COCO dataset.
         
         Attributes
@@ -67,12 +66,17 @@ class CocoDataset(object):
             self.pad_mode = 'fixed'
         else:
             self.pad_mode = 'non-fixed'
-
+        
+        self.rgb_mean = mean
+        self.rgb_std = std
         self.img_transform = transforms.ImageTransform(scale, mean, std,
                                                        pad_mode)
         self.bbox_transform = transforms.BboxTransform()
+        self.mask_transform = transforms.MaskTransform(scale, pad_mode)
         self.train = train
         self.preproc_mode = preproc_mode
+        self.mask = mask
+
 
     def _filter_imgs(self, min_size=32):
         '''Filter images too small or without ground truths.
@@ -128,7 +132,7 @@ class CocoDataset(object):
             x1, y1, w, h = ann['bbox']
             if ann['area'] <= 0 or w < 1 or h < 1:
                 continue
-            bbox = [y1, x1, y1 + h - 1, x1 + w - 1]
+            bbox = [y1, x1, y1 + h, x1 + w]
             if ann['iscrowd']:
                 gt_bboxes_ignore.append(bbox)
             else:
@@ -166,12 +170,13 @@ class CocoDataset(object):
         return image/127.0 - 1.0
  
 
-    def _caffe_preprocessing(self, image, pixel_means):
+    def _caffe_preprocessing(self, image):
         """
         BGR zero centered
         :param image:
         :return:
         """
+        pixel_means = self.rgb_mean[::-1]
         channels = cv2.split(image)
         for i in range(3):
             channels[i] -= pixel_means[i]
@@ -200,7 +205,7 @@ class CocoDataset(object):
             rgb_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
             img = self._tf_preprocessing(rgb_img)
         elif self.preproc_mode == 'caffe':
-            img = self._caffe_preprocessing(bgr_img, (103.939, 116.779, 123.68))
+            img = self._caffe_preprocessing(bgr_img)
         else:
             raise NotImplementedError
 
@@ -212,7 +217,13 @@ class CocoDataset(object):
         labels = ann['labels']
 
         flip = True if np.random.rand() < self.flip_ratio else False
-
+        
+        # load masks
+        if self.mask:
+            masks = np.array([self.mask_transform(self.coco.annToMask(i), flip=flip) \
+                     for i in ann_info])
+            masks = masks.astype(np.int32)
+        
         # Handle the image
         img, img_shape, scale_factor = self.img_transform(img, flip)
 
@@ -233,7 +244,10 @@ class CocoDataset(object):
 
         img_meta = utils.compose_image_meta(img_meta_dict)
         if self.train:
-            return img, img_meta, bboxes, labels
+            if self.mask:
+                return img, img_meta, bboxes, labels, masks
+            else:
+                return img, img_meta, bboxes, labels
         return img, img_meta
 
 

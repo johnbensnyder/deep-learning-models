@@ -38,8 +38,8 @@ def bbox_flip(bboxes, img_shape):
     '''
     w = img_shape[1]
     flipped = bboxes.copy()
-    flipped[..., 1] = w - bboxes[..., 3] - 1
-    flipped[..., 3] = w - bboxes[..., 1] - 1
+    flipped[..., 1] = w - bboxes[..., 3]
+    flipped[..., 3] = w - bboxes[..., 1]
     return flipped
 
 def impad_to_square(img, pad_size):
@@ -79,6 +79,43 @@ def impad_to_multiple(img, divisor):
     
     pad = np.zeros(shape, dtype=img.dtype)
     pad[:img.shape[0], :img.shape[1], ...] = img
+    return pad
+
+def impad_mask_to_square(img, pad_size):
+    '''Pad a mask to ensure each edge to equal to pad_size.
+    
+    Args
+    ---
+        img: [height, width]. Mask to be padded
+        pad_size: Int.
+    
+    Returns
+    ---
+        ndarray: The padded image with shape of 
+            [pad_size, pad_size].
+    '''
+    shape = (pad_size, pad_size)
+    pad = np.zeros(shape, dtype=img.dtype)
+    pad[:img.shape[0], :img.shape[1]] = img
+    return pad
+
+def impad_mask_to_multiple(img, divisor):
+    '''Pad a mask to ensure each edge to be multiple to some number.
+    
+    Args
+    ---
+        img: [height, width]. Mask to be padded.
+        divisor: Int. Padded mask edges will be multiple to divisor.
+    
+    Returns
+    ---
+        ndarray: The padded mask.
+    '''
+    pad_h = int(np.ceil(img.shape[0] / divisor)) * divisor
+    pad_w = int(np.ceil(img.shape[1] / divisor)) * divisor
+    shape = (pad_h, pad_w)
+    pad = np.zeros(shape, dtype=img.dtype)
+    pad[:img.shape[0], :img.shape[1]] = img
     return pad
 
 def imrescale(img, scale):
