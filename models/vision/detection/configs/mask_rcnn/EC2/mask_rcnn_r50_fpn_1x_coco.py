@@ -66,8 +66,8 @@ model = dict(
     type='MaskHead',
     num_classes=80,
     weight_decay=1e-5,
-    group_norm=False,
-    batch_norm=True)
+    use_gn=False,
+    use_bn=False)
 )
 # model training and testing settings
 train_cfg = dict(
@@ -79,7 +79,7 @@ test_cfg = dict(
 dataset_type = 'CocoDataset'
 data_root = '/workspace/shared_workspace/data/coco/coco'
 data = dict(
-    imgs_per_gpu=4,
+    imgs_per_gpu=2,
     train=dict(
         type=dataset_type,
         train=True,

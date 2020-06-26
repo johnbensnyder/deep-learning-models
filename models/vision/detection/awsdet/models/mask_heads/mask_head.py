@@ -8,66 +8,61 @@ from ..registry import HEADS
 class MaskHead(tf.keras.Model):
     def __init__(self, num_classes,
                        weight_decay=1e-5, 
-                       group_norm=False,
-                       batch_norm=False):
+                       use_gn=False,
+                       use_bn=False):
         super().__init__()
         self.num_classes = num_classes
         self.weight_decay = weight_decay
-        assert not (group_norm & batch_norm), "Cannot use both group and batch norm"
-        self.group_norm = group_norm
-        self.batch_norm = batch_norm
+        assert not (use_gn & use_bn), "Cannot use both group and batch norm"
+        self.use_gn = use_gn
+        self.use_bn = use_bn
         self._conv_0 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
-                                             kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
-                                                                                                      mode='fan_out'),
+                                             kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
                                              name="mask_conv_0")
-        if self.group_norm:
-            self._conv_0_gn = tfa.layers.GroupNormalization()
-        if self.batch_norm:
+        if self.use_gn:
+            self._conv_0_gn = tfa.layers.GroupNormalization(groups=32)
+        if self.use_bn:
             self._conv_0_bn = tf.keras.layers.BatchNormalization()
         self._conv_1 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
-                                             kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
-                                                                                                      mode='fan_out'),
+                                             kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
                                              name="mask_conv_0")
-        if self.group_norm:
-            self._conv_1_gn = tfa.layers.GroupNormalization()
-        if self.batch_norm:
+        if self.use_gn:
+            self._conv_1_gn = tfa.layers.GroupNormalization(groups=32)
+        if self.use_bn:
             self._conv_1_bn = tf.keras.layers.BatchNormalization()
         self._conv_2 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
-                                             kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
-                                                                                                      mode='fan_out'),
+                                             kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
                                              name="mask_conv_0")
-        if self.group_norm:
-            self._conv_2_gn = tfa.layers.GroupNormalization()
-        if self.batch_norm:
+        if self.use_gn:
+            self._conv_2_gn = tfa.layers.GroupNormalization(groups=32)
+        if self.use_bn:
             self._conv_2_bn = tf.keras.layers.BatchNormalization()
         self._conv_3 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
-                                             kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
-                                                                                                      mode='fan_out'),
+                                             kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
                                              name="mask_conv_0")
-        if self.group_norm:
-            self._conv_3_gn = tfa.layers.GroupNormalization()
-        if self.batch_norm:
+        if self.use_gn:
+            self._conv_3_gn = tfa.layers.GroupNormalization(groups=32)
+        if self.use_bn:
             self._conv_3_bn = tf.keras.layers.BatchNormalization()
         self._deconv = tf.keras.layers.Conv2DTranspose(256, (2, 2), strides=2, 
-                                                    kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
-                                                                                                      mode='fan_out'),
+                                                    kernel_initializer='glorot_uniform',
                                                     kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                                     activation=tf.keras.activations.relu,
                                                     name="mask_deconv")
         self._masks = tf.keras.layers.Conv2D(self.num_classes, (1, 1),
-                                             kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.001),
+                                             kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              strides=1, name="mask")
         
@@ -76,24 +71,24 @@ class MaskHead(tf.keras.Model):
         mask_list = []
         for mask_rois in mask_rois_list:
             mask_rois = self._conv_0(mask_rois)
-            if self.group_norm:
+            if self.use_gn:
                 mask_rois = self._conv_0_gn(mask_rois)
-            if self.batch_norm:
+            if self.use_bn:
                 mask_rois = self._conv_0_bn(mask_rois, training=training)
             mask_rois = self._conv_1(mask_rois)
-            if self.group_norm:
+            if self.use_gn:
                 mask_rois = self._conv_1_gn(mask_rois)
-            if self.batch_norm:
+            if self.use_bn:
                 mask_rois = self._conv_1_bn(mask_rois, training=training)
             mask_rois = self._conv_2(mask_rois)
-            if self.group_norm:
+            if self.use_gn:
                 mask_rois = self._conv_2_gn(mask_rois)
-            if self.batch_norm:
+            if self.use_bn:
                 mask_rois = self._conv_2_bn(mask_rois, training=training)
             mask_rois = self._conv_3(mask_rois)
-            if self.group_norm:
+            if self.use_gn:
                 mask_rois = self._conv_3_gn(mask_rois)
-            if self.batch_norm:
+            if self.use_bn:
                 mask_rois = self._conv_3_bn(mask_rois, training=training)
             mask_rois = self._deconv(mask_rois)
             mask_rois = self._masks(mask_rois)
