@@ -8,11 +8,14 @@ from ..registry import HEADS
 class MaskHead(tf.keras.Model):
     def __init__(self, num_classes,
                        weight_decay=1e-5, 
-                       group_norm=False):
+                       group_norm=False,
+                       batch_norm=False):
         super().__init__()
         self.num_classes = num_classes
         self.weight_decay = weight_decay
+        assert not (group_norm & batch_norm), "Cannot use both group and batch norm"
         self.group_norm = group_norm
+        self.batch_norm = batch_norm
         self._conv_0 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
                                              kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
@@ -22,6 +25,8 @@ class MaskHead(tf.keras.Model):
                                              name="mask_conv_0")
         if self.group_norm:
             self._conv_0_gn = tfa.layers.GroupNormalization()
+        if self.batch_norm:
+            self._conv_0_bn = tf.keras.layers.BatchNormalization()
         self._conv_1 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
                                              kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
@@ -31,6 +36,8 @@ class MaskHead(tf.keras.Model):
                                              name="mask_conv_0")
         if self.group_norm:
             self._conv_1_gn = tfa.layers.GroupNormalization()
+        if self.batch_norm:
+            self._conv_1_bn = tf.keras.layers.BatchNormalization()
         self._conv_2 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
                                              kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
@@ -40,6 +47,8 @@ class MaskHead(tf.keras.Model):
                                              name="mask_conv_0")
         if self.group_norm:
             self._conv_2_gn = tfa.layers.GroupNormalization()
+        if self.batch_norm:
+            self._conv_2_bn = tf.keras.layers.BatchNormalization()
         self._conv_3 = tf.keras.layers.Conv2D(256, (3, 3),
                                              padding="same",
                                              kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
@@ -49,6 +58,8 @@ class MaskHead(tf.keras.Model):
                                              name="mask_conv_0")
         if self.group_norm:
             self._conv_3_gn = tfa.layers.GroupNormalization()
+        if self.batch_norm:
+            self._conv_3_bn = tf.keras.layers.BatchNormalization()
         self._deconv = tf.keras.layers.Conv2DTranspose(256, (2, 2), strides=2, 
                                                     kernel_initializer=tf.keras.initializers.VarianceScaling(scale=2.0,
                                                                                                       mode='fan_out'),
@@ -67,15 +78,23 @@ class MaskHead(tf.keras.Model):
             mask_rois = self._conv_0(mask_rois)
             if self.group_norm:
                 mask_rois = self._conv_0_gn(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_0_bn(mask_rois, training=training)
             mask_rois = self._conv_1(mask_rois)
             if self.group_norm:
                 mask_rois = self._conv_1_gn(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_1_bn(mask_rois, training=training)
             mask_rois = self._conv_2(mask_rois)
             if self.group_norm:
                 mask_rois = self._conv_2_gn(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_2_bn(mask_rois, training=training)
             mask_rois = self._conv_3(mask_rois)
             if self.group_norm:
                 mask_rois = self._conv_3_gn(mask_rois)
+            if self.batch_norm:
+                mask_rois = self._conv_3_bn(mask_rois, training=training)
             mask_rois = self._deconv(mask_rois)
             mask_rois = self._masks(mask_rois)
             mask_rois = tf.transpose(mask_rois, [0, 3, 1, 2])

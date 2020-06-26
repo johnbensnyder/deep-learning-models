@@ -194,7 +194,8 @@ def _dist_train(model,
                     cfg.work_dir,
                     logger=logger,
                     amp_enabled=mixed_precision,
-                    gradient_clip=gradient_clip)
+                    gradient_clip=gradient_clip,
+                    mask=cfg.get('mask', False))
  
     runner.timestamp = timestamp
     # register hooks
@@ -240,7 +241,8 @@ def _non_dist_train(model,
                     batch_processor,
                     optimizer,
                     cfg.work_dir,
-                    logger=logger)
+                    logger=logger,
+                    mask=cfg.get('mask', False))
     # workaround to make the .log and .log.json filenames the same
     runner.timestamp = timestamp
     optimizer_config = cfg.optimizer_config

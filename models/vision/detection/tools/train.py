@@ -11,7 +11,7 @@ import tarfile
 import numpy as np
 import tensorflow as tf
 import sys
-sys.path.append('/workspace/shared_workspace/mask_rcnn/deep-learning-models/models/vision/detection')
+sys.path.append('/workspace/shared_workspace/refactor/deep-learning-models/models/vision/detection')
 
 from awsdet.utils.misc import Config, mkdir_or_exist
 from awsdet.utils.runner import init_dist, master_only, get_dist_info, get_barrier

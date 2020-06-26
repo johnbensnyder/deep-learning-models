@@ -15,7 +15,7 @@ from awsdet.utils.misc import ProgressBar
 from awsdet.datasets import build_dataloader
 from awsdet.utils.fileio import load, dump
 from awsdet.core.bbox import transforms
-from awsder.core.mask.transforms import mask2result
+from awsdet.core.mask.transforms import mask2result
 import tensorflow as tf
 
 class DistEvalHook(Hook):

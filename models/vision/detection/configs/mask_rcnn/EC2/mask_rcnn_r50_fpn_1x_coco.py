@@ -66,7 +66,8 @@ model = dict(
     type='MaskHead',
     num_classes=80,
     weight_decay=1e-5,
-    group_norm=False)
+    group_norm=False,
+    batch_norm=True)
 )
 # model training and testing settings
 train_cfg = dict(
@@ -149,4 +150,5 @@ log_level = 'INFO'
 work_dir = './work_dirs/faster_rcnn_r50_fpn_1x_coco'
 load_from = None
 resume_from = None
+mask = True
 workflow = [('train', 1)]
