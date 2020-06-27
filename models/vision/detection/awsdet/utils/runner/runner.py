@@ -309,7 +309,7 @@ class Runner(object):
             grads = clipped_grads
         # if self.rank == 0: tf.print(global_norm, all_are_finite)
         self.optimizer.apply_gradients(zip(grads, var_list))
-        return outputs
+        return outputs, grads
 
 
     def run_eval_step(self, data_batch):
@@ -342,7 +342,7 @@ class Runner(object):
         for i, data_batch in enumerate(tf_dataset[0]):
             self._inner_iter = i
             self.call_hook('before_train_iter')
-            outputs = self.run_train_step(data_batch)
+            outputs, grads = self.run_train_step(data_batch)
             if self.broadcast: # broadcast once
                 broadcast_weights(self)
                 self.broadcast = False
@@ -354,6 +354,7 @@ class Runner(object):
                 # add current learning rate for tensorboard as well
                 self.log_buffer.update({'learning_rate': self.current_lr()})
             self.outputs = outputs
+            self.grads = grads
             self.call_hook('after_train_iter')
             self._iter += 1
             debug_on_train_every_iter = 1000

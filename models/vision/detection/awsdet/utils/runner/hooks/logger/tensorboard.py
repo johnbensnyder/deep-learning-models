@@ -18,7 +18,8 @@ class TensorboardLoggerHook(LoggerHook):
                  image_interval=None,
                  s3_interval=10,
                  ignore_last=True,
-                 reset_flag=True):
+                 reset_flag=True,
+                 diagnostic=False):
         super(TensorboardLoggerHook, self).__init__(interval, ignore_last,
                                                     reset_flag)
         self.log_dir = log_dir
@@ -28,6 +29,7 @@ class TensorboardLoggerHook(LoggerHook):
         self.s3_dir = s3_dir
         self.s3_interval = s3_interval
         self.image_interval = image_interval
+        self.diagnostic = diagnostic
         if s3_dir:
             self.s3 = S3FileSystem()
             self.threadpool = ThreadPoolExecutor()
@@ -48,13 +50,44 @@ class TensorboardLoggerHook(LoggerHook):
                     tf.summary.text(tag, record, step=runner.iter)
                 else:
                     tf.summary.scalar(tag, record, step=runner.iter)
-            self._image_log(runner)  
+            self._image_log(runner)
+            if self.diagnostic:
+                self._model_diagnostics(runner)
         self.writer.flush()
         self._s3_upload(runner)
+        
     
-    
-    
-    
+    def _model_diagnostics(self, runner):
+        grads = runner.grads
+        weights = runner.model.trainable_variables
+        var_means = {"var_mean/{}".format(i.name):tf.reduce_mean(i).numpy() \
+                     for i in runner.model.trainable_variables}
+        var_std = {"var_std/{}".format(i.name):tf.math.reduce_std(i).numpy() \
+                   for i in runner.model.trainable_variables}
+        var_mag = {"var_mag/{}".format(i.name):tf.reduce_sum(tf.square(i)).numpy() \
+                   for i in runner.model.trainable_variables}
+        grad_means = {"grad_means/{}".format(i.name):tf.reduce_mean(j).numpy() \
+                  for i,j in zip(runner.model.trainable_variables, 
+                                 runner.grads)}
+        grad_std = {"grad_std/{}".format(i.name):tf.math.reduce_std(j).numpy() \
+                  for i,j in zip(runner.model.trainable_variables, 
+                                 runner.grads)}
+        grad_mag = {"grad_mag/{}".format(i.name):tf.reduce_sum(tf.square(j)).numpy() \
+                  for i,j in zip(runner.model.trainable_variables, 
+                                 runner.grads)}
+        for i,j in var_means.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in var_std.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in var_mag.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in grad_means.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in grad_std.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in grad_mag.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        
     def _image_log(self, runner):
         if self.image_interval and \
         self.every_n_inner_iters(runner, self.image_interval+self.interval):
