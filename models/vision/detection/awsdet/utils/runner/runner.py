@@ -294,7 +294,7 @@ class Runner(object):
     @tf.function(experimental_relax_shapes=True)
     def run_train_step(self, data_batch):
         with tf.GradientTape() as tape:
-            outputs = self.batch_processor(self.model, data_batch, train_mode=True)
+            outputs = self.batch_processor(self, data_batch, train_mode=True)
         var_list = self.model.trainable_variables
         tape = get_distributed_tape(tape) if self.world_size > 1 else tape
         loss = outputs['loss']
@@ -323,7 +323,7 @@ class Runner(object):
             imgs, img_metas, gt_boxes, gt_class_ids, gt_masks = data_batch
         else:
             imgs, img_metas, gt_boxes, gt_class_ids = data_batch
-        detections_dict = self.batch_processor(self.model, (tf.expand_dims(imgs[0], axis=0), 
+        detections_dict = self.batch_processor(self, (tf.expand_dims(imgs[0], axis=0), 
                                                             tf.expand_dims(img_metas[0], axis=0)), train_mode=False)
         for l, b in zip(gt_class_ids,gt_boxes):
             print('GT', l, b)

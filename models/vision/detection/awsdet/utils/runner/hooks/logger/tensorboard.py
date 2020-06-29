@@ -75,6 +75,12 @@ class TensorboardLoggerHook(LoggerHook):
         grad_mag = {"grad_mag/{}".format(i.name):tf.reduce_sum(tf.square(j)).numpy() \
                   for i,j in zip(runner.model.trainable_variables, 
                                  runner.grads)}
+        grad_max = {"grad_max/{}".format(i.name):tf.math.reduce_max(j).numpy() \
+                  for i,j in zip(runner.model.trainable_variables, 
+                                 runner.grads)}
+        grad_norm = {"grad_norm/{}".format(i.name):tf.norm(j).numpy() \
+                  for i,j in zip(runner.model.trainable_variables, 
+                                 runner.grads)}
         for i,j in var_means.items():
             tf.summary.scalar(i, j, step=runner.iter)
         for i,j in var_std.items():
@@ -86,6 +92,10 @@ class TensorboardLoggerHook(LoggerHook):
         for i,j in grad_std.items():
             tf.summary.scalar(i, j, step=runner.iter)
         for i,j in grad_mag.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in grad_max.items():
+            tf.summary.scalar(i, j, step=runner.iter)
+        for i,j in grad_norm.items():
             tf.summary.scalar(i, j, step=runner.iter)
         
     def _image_log(self, runner):

@@ -8,6 +8,7 @@ from collections import OrderedDict
 import tensorflow_addons as tfa
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 from ..utils.runner import (Runner, get_dist_info, obj_from_dict)
 from awsdet.core import CocoDistEvalmAPHook, CocoDistEvalRecallHook
 #                        DistEvalmAPHook, DistOptimizerHook, Fp16OptimizerHook)
@@ -74,7 +75,7 @@ def parse_losses(losses, local_batch_size):
 
 
 @tf.function(experimental_relax_shapes=True)
-def batch_processor(model, data, train_mode, loss_weights=None):
+def batch_processor(runner, data, train_mode, loss_weights=None):
     """Process a data batch.
 
     This method is required as an argument of Runner, which defines how to
@@ -91,10 +92,12 @@ def batch_processor(model, data, train_mode, loss_weights=None):
     Returns:
         dict: A dict containing losses and log vars.
     """
+    model = runner.model
+    learning_rate = runner.optimizer.learning_rate
     if train_mode:
         losses = model(data, training=train_mode)
         # add regularization losses
-        reg_losses = tf.add_n(model.losses)
+        reg_losses = tf.add_n(model.losses) * learning_rate
         local_batch_size = data[0].shape[0]
         losses['reg_loss'] = reg_losses
         if not loss_weights is None:
@@ -158,7 +161,16 @@ def build_optimizer(optimizer_cfg):
 
     """
     optimizer_cfg = optimizer_cfg.copy()
-    return obj_from_dict(optimizer_cfg, tf.keras.optimizers)
+    assert isinstance(optimizer_cfg, dict) and 'type' in optimizer_cfg, "Must supply optimizer type"
+    keras_optimizers = ['SGD', 'Adam', 'RMSprop', 'Nadam']
+    tfa_optimizers = ['SGDW', 'AdamW']
+    assert optimizer_cfg['type'] in keras_optimizers \
+            or optimizer_cfg['type'] in tfa_optimizers, \
+            "{} optimizer not supported, supported optimizers are SGD, SGDW, RMSprop, Adam, AdamW, Nadam"
+    if optimizer_cfg['type'] in keras_optimizers:
+        return obj_from_dict(optimizer_cfg, tf.keras.optimizers)
+    else:
+        return obj_from_dict(optimizer_cfg, tfa.optimizers)
 
 
 def _dist_train(model,
