@@ -318,3 +318,4 @@ def make_image(image, boxes, class_ids, class_names,
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     # data = data[np.where(~np.all(data == 255, axis=1))]
     return data
+    

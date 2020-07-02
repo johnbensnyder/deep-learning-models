@@ -162,16 +162,7 @@ def build_optimizer(optimizer_cfg):
     """
     optimizer_cfg = optimizer_cfg.copy()
     assert isinstance(optimizer_cfg, dict) and 'type' in optimizer_cfg, "Must supply optimizer type"
-    keras_optimizers = ['SGD', 'Adam', 'RMSprop', 'Nadam']
-    tfa_optimizers = ['SGDW', 'AdamW']
-    assert optimizer_cfg['type'] in keras_optimizers \
-            or optimizer_cfg['type'] in tfa_optimizers, \
-            "{} optimizer not supported, supported optimizers are SGD, SGDW, RMSprop, Adam, AdamW, Nadam"
-    if optimizer_cfg['type'] in keras_optimizers:
-        return obj_from_dict(optimizer_cfg, tf.keras.optimizers)
-    else:
-        return obj_from_dict(optimizer_cfg, tfa.optimizers)
-
+    return obj_from_dict(optimizer_cfg, tf.keras.optimizers)
 
 def _dist_train(model,
                 dataset,

@@ -49,15 +49,15 @@ class Visualizer(Hook):
                                        tf.where(result['scores']>=self.threshold))
         detection_dict['top_scores'] = tf.gather_nd(result['scores'], 
                                       tf.where(result['scores']>=self.threshold))
-        if 'masks' in result.keys():
-            detection_dict['top_masks'] = tf.gather_nd(result['masks'],
-                                     tf.where(result['scores']>=self.threshold))
+        # if 'masks' in result.keys():
+        #     detection_dict['top_masks'] = tf.gather_nd(result['masks'],
+        #                              tf.where(result['scores']>=self.threshold))
         if tf.shape(detection_dict['top_boxes'])[0]==0:
             detection_dict['top_boxes'] = result['bboxes'][:self.top_k]
             detection_dict['top_classes'] = result['labels'][:self.top_k]
             detection_dict['top_scores'] = result['scores'][:self.top_k]
-            if 'masks' in result.keys():
-                 detection_dict['top_masks'] = result['masks'][:self.top_k]
+            # if 'masks' in result.keys():
+            #      detection_dict['top_masks'] = result['masks'][:self.top_k]
         return original_image, detection_dict
     
     @master_only
@@ -90,5 +90,8 @@ class Visualizer(Hook):
                                          figsize=self.figsize, 
                                          scores=scores,
                                          masks=masks)
-        image = np.expand_dims(image/255, axis=0)
+        image = np.expand_dims(image/255., axis=0)
+        combined_mask = np.expand_dims(np.max(detection_dict['top_masks'].numpy(), axis=0), axis=0)
+        combined_mask = combined_mask.astype(np.float32)
         runner.log_buffer.update({'prediction_image': image})
+        runner.log_buffer.update({'image_mask': combined_mask})

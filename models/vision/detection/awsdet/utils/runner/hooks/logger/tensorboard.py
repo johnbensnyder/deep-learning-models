@@ -103,7 +103,7 @@ class TensorboardLoggerHook(LoggerHook):
         self.every_n_inner_iters(runner, self.image_interval+self.interval):
             for var in runner.log_buffer.val_history:
                 if 'image' in var:
-                    tag = '{}/{}'.format(var, runner.mode)
+                    tag = '{}/{}'.format(runner.mode, var)
                     record = runner.log_buffer.val_history[var][-1]
                     tf.summary.image(tag, record, step=runner.iter+1)
                     

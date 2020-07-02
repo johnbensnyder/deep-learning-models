@@ -38,8 +38,6 @@ class LrUpdaterHook(Hook):
         #     param_group['lr'] = lr
         #TODO param groups not supported
         runner.optimizer.learning_rate = lr_groups[0]
-        if hasattr(runner.optimizer, 'weight_decay'):
-            runner.optimizer.weight_decay = self.base_wd * lr_groups[0]
 
     def get_lr(self, runner, base_lr):
         raise NotImplementedError
@@ -68,8 +66,6 @@ class LrUpdaterHook(Hook):
         # ]
         # TODO: setting different learning rates for different param groups unsupported
         self.base_lr = [runner.optimizer.learning_rate.numpy()]
-        if hasattr(runner.optimizer, 'weight_decay'):
-            self.base_wd = runner.optimizer.weight_decay.numpy()
 
     def before_train_epoch(self, runner):
         if not self.by_epoch:
