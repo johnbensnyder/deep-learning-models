@@ -31,7 +31,7 @@ class MaskHead(tf.keras.Model):
                                              kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
-                                             name="mask_conv_0")
+                                             name="mask_conv_1")
         if self.use_gn:
             self._conv_1_gn = tfa.layers.GroupNormalization(groups=32)
         if self.use_bn:
@@ -41,7 +41,7 @@ class MaskHead(tf.keras.Model):
                                              kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
-                                             name="mask_conv_0")
+                                             name="mask_conv_2")
         if self.use_gn:
             self._conv_2_gn = tfa.layers.GroupNormalization(groups=32)
         if self.use_bn:
@@ -51,7 +51,7 @@ class MaskHead(tf.keras.Model):
                                              kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
                                              activation=tf.keras.activations.relu,
-                                             name="mask_conv_0")
+                                             name="mask_conv_3")
         if self.use_gn:
             self._conv_3_gn = tfa.layers.GroupNormalization(groups=32)
         if self.use_bn:
@@ -64,7 +64,7 @@ class MaskHead(tf.keras.Model):
         self._masks = tf.keras.layers.Conv2D(self.num_classes, (1, 1),
                                              kernel_initializer='glorot_uniform',
                                              kernel_regularizer=tf.keras.regularizers.l2(weight_decay),
-                                             strides=1, name="mask")
+                                             strides=1, name="mask_output")
         
     @tf.function(experimental_relax_shapes=True)
     def call(self, mask_rois_list, training=True):

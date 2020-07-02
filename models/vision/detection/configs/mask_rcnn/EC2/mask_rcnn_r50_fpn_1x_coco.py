@@ -9,7 +9,7 @@ model = dict(
         type='KerasBackbone',
         model_name='ResNet50V1',
         weights_path='/workspace/shared_workspace/data/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
-        weight_decay=1e-6
+        weight_decay=1e-5
     ),
     neck=dict(
         type='FPN',
@@ -17,7 +17,7 @@ model = dict(
         out_channels=256,
         num_outs=5,
         interpolation_method='bilinear',
-        weight_decay=1e-6,
+        weight_decay=1e-5,
     ),
     rpn_head=dict(
         type='RPNHead',
@@ -35,7 +35,7 @@ model = dict(
         num_post_nms_train=2000,
         num_pre_nms_test=12000,
         num_post_nms_test=2000,
-        weight_decay=1e-6,
+        weight_decay=1e-5,
     ),
     bbox_roi_extractor=dict(
         type='PyramidROIAlign',
@@ -52,7 +52,7 @@ model = dict(
     min_confidence=0.001, 
     nms_threshold=0.5,
     max_instances=100,
-    weight_decay=1e-6,
+    weight_decay=1e-5,
     use_conv=True,
     use_bn=False,
     soft_nms_sigma=0.5),
@@ -65,13 +65,13 @@ model = dict(
     mask_head=dict(
     type='MaskHead',
     num_classes=80,
-    weight_decay=1e-6,
+    weight_decay=1e-5,
     use_gn=False,
     use_bn=False)
 )
 # model training and testing settings
 train_cfg = dict(
-    weight_decay=1e-6,
+    weight_decay=1e-5,
 )
 test_cfg = dict(
 )
