@@ -308,7 +308,7 @@ def make_image(image, boxes, class_ids, class_names,
             a_mask = np.concatenate([a_mask]*3, axis=-1)
             a_mask *= color
             a_mask /= 5
-            image += a_mask
+            # image += a_mask
     
     plt.imshow(image.astype(np.uint8))
     fig.tight_layout(pad = 0.0)

@@ -19,7 +19,8 @@ class TensorboardLoggerHook(LoggerHook):
                  s3_interval=10,
                  ignore_last=True,
                  reset_flag=True,
-                 diagnostic=False):
+                 diagnostic=False,
+                 diagnostic_interval=500):
         super(TensorboardLoggerHook, self).__init__(interval, ignore_last,
                                                     reset_flag)
         self.log_dir = log_dir
@@ -30,6 +31,7 @@ class TensorboardLoggerHook(LoggerHook):
         self.s3_interval = s3_interval
         self.image_interval = image_interval
         self.diagnostic = diagnostic
+        self.diagnostic_interval = diagnostic_interval
         if s3_dir:
             self.s3 = S3FileSystem()
             self.threadpool = ThreadPoolExecutor()
@@ -81,6 +83,10 @@ class TensorboardLoggerHook(LoggerHook):
         grad_norm = {"grad_norm/{}".format(i.name):tf.norm(j).numpy() \
                   for i,j in zip(runner.model.trainable_variables, 
                                  runner.grads)}
+        grad_hist = {"grad_hist/{}".format(i.name):j.numpy() \
+                    for i,j in zip(runner.model.trainable_variables, runner.grads)}
+        var_hist = {"var_hist/{}".format(i.name):i.numpy() \
+                    for i in runner.model.trainable_variables}
         for i,j in var_means.items():
             tf.summary.scalar(i, j, step=runner.iter)
         for i,j in var_std.items():
@@ -97,6 +103,11 @@ class TensorboardLoggerHook(LoggerHook):
             tf.summary.scalar(i, j, step=runner.iter)
         for i,j in grad_norm.items():
             tf.summary.scalar(i, j, step=runner.iter)
+        if self.every_n_inner_iters(runner, self.image_interval+self.diagnostic_interval):
+            for i,j in grad_hist.items():
+                tf.summary.histogram(i, j, step=runner.iter)
+            for i,j in var_hist.items():
+                tf.summary.histogram(i, j, step=runner.iter)
         
     def _image_log(self, runner):
         if self.image_interval and \
