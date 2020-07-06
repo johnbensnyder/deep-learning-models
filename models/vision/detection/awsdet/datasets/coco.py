@@ -181,6 +181,20 @@ class CocoDataset(object):
         for i in range(3):
             channels[i] -= pixel_means[i]
         return cv2.merge(channels)
+    
+    def _rgb_preprocessing(self, image):
+        """
+        RGB standardized
+        Args:
+            image: numpy array
+        Returns:
+            Standardized RGB image
+        """
+        channels = cv2.split(image)
+        for i in range(3):
+            channels[i] -= self.rgb_mean[i]
+            channels[i] /= self.rgb_std[i]
+        return cv2.merge(channels)
 
 
     def __getitem__(self, idx):
@@ -206,6 +220,9 @@ class CocoDataset(object):
             img = self._tf_preprocessing(rgb_img)
         elif self.preproc_mode == 'caffe':
             img = self._caffe_preprocessing(bgr_img)
+        elif self.preproc_mode == 'rgb':
+            rgb_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
+            img = self._rgb_preprocessing(rgb_img)
         else:
             raise NotImplementedError
 

@@ -176,7 +176,8 @@ class ProposalTarget:
                             tf.gather(labels, fg_inds)], axis=1), bbox_targets)
         final_bbox_targets = tf.reshape(final_bbox_targets, [-1, self.num_classes * 4])
         final_bbox_targets = tf.reshape(final_bbox_targets, [-1, self.num_classes * 4])
-
+        # is this the right scaling factor?
+        pos_count = tf.size(fg_inds)
         bbox_outside_weights = tf.ones_like(bbox_inside_weights, dtype=bbox_inside_weights.dtype) * 1.0 / self.num_rcnn_deltas
         fg_assignments = tf.gather(gt_assignment, keep_inds)
         return (tf.stop_gradient(final_rois), tf.stop_gradient(final_labels), tf.stop_gradient(final_bbox_targets),

@@ -158,7 +158,16 @@ def main_ec2(args, cfg):
     # print('BEFORE:', model.layers[0].layers[0].get_weights()[0][0,0,0,:])
     weights_path = cfg.model['backbone']['weights_path']
     logger.info('Loading weights from: {}'.format(weights_path))
-    model.layers[0].layers[0].load_weights(weights_path, by_name=True, skip_mismatch=True)
+    if osp.splitext(weights_path)[1] == '.h5': # older keras format from Keras model zoo
+        model.layers[0].layers[0].load_weights(weights_path, by_name=True, skip_mismatch=True)
+    else: # SavedModel format assumed - extract weights
+        backbone_model = tf.keras.models.load_model(weights_path)
+        # load weights if layers match
+        for layer_idx, layer in enumerate(backbone_model.layers):
+            if layer_idx < len(model.layers[0].layers[0].layers):
+                model.layers[0].layers[0].layers[layer_idx].set_weights(layer.get_weights())
+                print('Loaded weights for:', layer.name)
+        del backbone_model
     # print('AFTER:',model.layers[0].layers[0].get_weights()[0][0,0,0,:])
 
     print_model_info(model, logger)

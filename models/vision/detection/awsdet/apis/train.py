@@ -97,7 +97,7 @@ def batch_processor(runner, data, train_mode, loss_weights=None):
     if train_mode:
         losses = model(data, training=train_mode)
         # add regularization losses
-        reg_losses = tf.add_n(model.losses) # * learning_rate
+        reg_losses = tf.add_n(model.losses)
         local_batch_size = data[0].shape[0]
         losses['reg_loss'] = reg_losses
         if not loss_weights is None:

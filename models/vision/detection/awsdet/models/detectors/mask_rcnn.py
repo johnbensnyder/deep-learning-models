@@ -54,7 +54,7 @@ class MaskRCNN(TwoStageDetector):
         self.count = 0
         
     def init_weights(self):
-        super(FasterRCNN, self).init_weights(self.pretrained)
+        super(MaskRCNN, self).init_weights(self.pretrained)
         if not self.pretrained:
             if hasattr(self.backbone, 'pretrained'):
                 if not self.backbone.pretrained:
