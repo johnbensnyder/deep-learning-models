@@ -25,6 +25,7 @@ class Visualizer(Hook):
             dataset_cfg['dataset_dir'] = data_root
         self.dataset_cfg = dataset_cfg
         self.img_mean = dataset_cfg['mean']
+        self.img_std = dataset_cfg['std']
         self.dataset = datasets.build_dataset(dataset_cfg)
         self.tf_dataset, self.num_examples = datasets.build_dataloader(self.dataset, 1, 1, num_gpus=1, dist=False)
         self.tf_dataset = iter(self.tf_dataset.prefetch(16).shuffle(4).repeat())
@@ -39,7 +40,9 @@ class Visualizer(Hook):
     def get_prediction(self, img, meta, model):
         result = model((img, meta), training=False)
         original_image = img[0][:int(meta[0][3]), :int(meta[0][4])]
-        original_image = (tf.reverse(original_image, axis=[-1])+self.img_mean)
+        #original_image = (tf.reverse(original_image, axis=[-1])+self.img_mean)
+        original_image *= self.img_std
+        original_image += self.img_mean
         if 'masks' in result.keys():
             result['masks'] = result['masks'][:, :int(meta[0][3]), :int(meta[0][4]), :]
         detection_dict = {}
