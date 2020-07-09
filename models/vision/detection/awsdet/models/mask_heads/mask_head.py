@@ -161,6 +161,7 @@ class MaskHead(tf.keras.Model):
                                                          self.crop_size[1]), loss.dtype)
         mask_count *= nan_multiplier
         loss /= mask_count
+        loss *= tf.cast(batch_size, loss.dtype)
         return loss
     
     @tf.function(experimental_relax_shapes=True)
