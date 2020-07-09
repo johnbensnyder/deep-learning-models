@@ -157,7 +157,8 @@ class MaskHead(tf.keras.Model):
         # adjust in case we got any nan value
         nan_multiplier = tf.cast(img_metas.shape[0]/valid_losses, loss.dtype)
         loss *= nan_multiplier
-        mask_count = tf.cast(mask_count*tf.math.multiply(*self.crop_size), loss.dtype)
+        mask_count = tf.cast(mask_count*tf.math.multiply(self.crop_size[0], 
+                                                         self.crop_size[1]), loss.dtype)
         mask_count *= nan_multiplier
         loss /= mask_count
         return loss
