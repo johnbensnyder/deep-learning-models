@@ -142,9 +142,9 @@ log_config = dict(
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook', log_dir='/tmp/tensorboard', 
-             diagnostic=True, image_interval=100),
+             diagnostic=False, image_interval=100),
         dict(type='Visualizer', dataset_cfg=data['val']),
-        dict(type='Profiler', log_dir='/tmp/tensorboard')
+        #dict(type='Profiler', log_dir='/tmp/tensorboard')
     ])
 # yapf:enable
 # runtime settings
