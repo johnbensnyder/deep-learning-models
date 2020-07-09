@@ -128,9 +128,10 @@ class MaskHead(tf.keras.Model):
         masks_pred = self.gather_mask_predictions(masks_pred, rcnn_target_matchs)
         masks_true = self.crop_masks(rois, fg_assignments, gt_masks, img_metas)
         masks_true = tf.boolean_mask(masks_true, rcnn_target_matchs!=0)
-        loss = tf.math.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=masks_true, 
-                                                                           logits=masks_pred))
-        return loss
+        loss = tf.math.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=masks_true, 
+                                                                          logits=masks_pred))
+        mask_count = tf.shape(masks_pred)[0]
+        return loss, mask_count
 
     @tf.function(experimental_relax_shapes=True)
     def mask_loss(self, masks_pred_list, rcnn_target_matchs, rois_list, 
@@ -141,9 +142,10 @@ class MaskHead(tf.keras.Model):
         rcnn_target_matchs = tf.reshape(rcnn_target_matchs, [batch_size, num_rois])
         gt_masks = tf.expand_dims(gt_masks, [-1])
         loss = 0.
+        mask_count = 0
         valid_losses = 0
         for i in range(img_metas.shape[0]):
-            single_loss=self._mask_loss_single(masks_pred_list[i], rcnn_target_matchs[i],
+            single_loss, count=self._mask_loss_single(masks_pred_list[i], rcnn_target_matchs[i],
                                     rois_list[i], fg_assignments[i], gt_masks[i],
                                     img_metas[i])
             # if no masks detected, don't add to loss
@@ -151,8 +153,13 @@ class MaskHead(tf.keras.Model):
                 continue
             valid_losses += 1
             loss += single_loss
+            mask_count += count
         # adjust in case we got any nan value
-        loss *= tf.cast(img_metas.shape[0]/valid_losses, tf.float32)
+        nan_multiplier = tf.cast(img_metas.shape[0]/valid_losses, loss.dtype)
+        loss *= nan_multiplier
+        mask_count = tf.cast(mask_count*tf.math.multiply(*self.crop_size), loss.dtype)
+        mask_count *= nan_multiplier
+        loss /= mask_count
         return loss
     
     @tf.function(experimental_relax_shapes=True)
