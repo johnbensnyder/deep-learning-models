@@ -1,0 +1,17 @@
+from awsdet.utils import build_from_cfg
+
+from .registry import BBOX_ASSIGNERS, BBOX_SAMPLERS, BBOX_CODERS
+
+def build_assigner(cfg, **default_args):
+    """Builder of box assigner."""
+    return build_from_cfg(cfg, BBOX_ASSIGNERS, default_args)
+
+
+def build_sampler(cfg, **default_args):
+    """Builder of box sampler."""
+    return build_from_cfg(cfg, BBOX_SAMPLERS, default_args)
+
+
+def build_bbox_coder(cfg, **default_args):
+    """Builder of box coder."""
+    return build_from_cfg(cfg, BBOX_CODERS, default_args)
