@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # -*- coding: utf-8 -*-
 import logging
+from pathlib import Path
 
 from .runner import get_dist_info
-
 
 def get_root_logger(log_file=None, log_level=logging.INFO):
     """Get the root logger.
@@ -32,6 +32,8 @@ def get_root_logger(log_file=None, log_level=logging.INFO):
     if rank != 0:
         logger.setLevel('ERROR')
     elif log_file is not None:
+        if not Path(log_file).parent.exists():
+            Path(log_file).parent.mkdir()
         file_handler = logging.FileHandler(log_file, 'w')
         file_handler.setFormatter(logging.Formatter(format_str))
         file_handler.setLevel(log_level)

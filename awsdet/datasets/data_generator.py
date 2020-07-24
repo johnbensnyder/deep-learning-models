@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # -*- coding: utf-8 -*-
 import numpy as np
+import tensorflow as tf
 
 class DataGenerator:
 
@@ -34,7 +35,12 @@ class DataGenerator:
                     img_meta = self.build_img_meta(img_instance)
                     img = img_instance['img']
                     gt_boxes = img_instance['gt_bboxes']
-                    yield img, img_meta, gt_boxes
+                    results = [img, img_meta, gt_boxes]
+                    if 'gt_labels' in img_instance.keys():
+                        results.append(tf.cast(img_instance['gt_labels'], tf.int32))
+                    if 'gt_masks' in img_instance.keys():
+                        results.append(img_instance['gt_masks'].to_tensor())
+                    yield tuple(results)
                 else:
                     img_instance = self.dataset[img_idx]
                     img_meta = self.build_img_meta(img_instance)

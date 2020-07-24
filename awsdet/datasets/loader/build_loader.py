@@ -40,25 +40,60 @@ def build_dataloader(dataset,
             generator = data_generator.DataGenerator(dataset, index=rank, num_gpus=local_size, shuffle=False) # evaluation on node 0 workers
     else:
         generator = data_generator.DataGenerator(dataset, shuffle=False)
-
+    num_elements = len(dataset.pipeline.transforms[-1].keys)
     if dataset.train:
-        tf_dataset = tf.data.Dataset.from_generator(
-            generator, (tf.float32, tf.float32, tf.float32,))
-        
-        # hacky way to boost performance on generators
-        tf_dataset = tf_dataset.map(lambda *args: args, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        
-        tf_dataset = tf_dataset.padded_batch(
-                            batch_size,
-                            padded_shapes=(
-                            tf.TensorShape([None, None, 3]), # image padded to largest in batch
-                            tf.TensorShape([14]),            # image meta - no padding
-                            tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
-                            ),
-                            padding_values=(0.0, 0.0, 0.0))
+        if num_elements==2:
+            tf_dataset = tf.data.Dataset.from_generator(
+                generator, (tf.float32, tf.float32, tf.float32,))
+            
+            tf_dataset = tf_dataset.map(lambda *args: args, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-        tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
-        return tf_dataset, generator.num_examples // batch_size
+            tf_dataset = tf_dataset.padded_batch(
+                                batch_size,
+                                padded_shapes=(
+                                tf.TensorShape([None, None, 3]), # image padded to largest in batch
+                                tf.TensorShape([14]),            # image meta - no padding
+                                tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
+                                ),
+                                padding_values=(0.0, 0.0, 0.0))
+
+            tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+            return tf_dataset, generator.num_examples // batch_size
+        elif num_elements==3:
+            tf_dataset = tf.data.Dataset.from_generator(
+                generator, (tf.float32, tf.float32, tf.float32, tf.int32))
+            
+            tf_dataset = tf_dataset.map(lambda *args: args, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+            tf_dataset = tf_dataset.padded_batch(
+                                batch_size,
+                                padded_shapes=(
+                                tf.TensorShape([None, None, 3]), # image padded to largest in batch
+                                tf.TensorShape([14]),            # image meta - no padding
+                                tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
+                                tf.TensorShape([None])),         # pad labels to longest
+                                padding_values=(0.0, 0.0, 0.0, -1))
+
+            tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+            return tf_dataset, generator.num_examples // batch_size
+        elif num_elements==4:
+            tf_dataset = tf.data.Dataset.from_generator(
+                generator, (tf.float32, tf.float32, tf.float32, tf.int32, tf.int32))
+            
+            tf_dataset = tf_dataset.map(lambda *args: args, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+            tf_dataset = tf_dataset.padded_batch(
+                                batch_size,
+                                padded_shapes=(
+                                tf.TensorShape([None, None, 3]), # image padded to largest in batch
+                                tf.TensorShape([14]),            # image meta - no padding
+                                tf.TensorShape([None, 4]),       # bounding boxes, padded to longest
+                                tf.TensorShape([None]),         # pad labels to longest
+                                tf.TensorShape([None, None, None])), # pad masks to longest
+                                padding_values=(0.0, 0.0, 0.0, -1, -1))
+
+            tf_dataset = tf_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+            return tf_dataset, generator.num_examples // batch_size
     else:
         tf_dataset = tf.data.Dataset.from_generator(
             generator, (tf.float32, tf.float32))

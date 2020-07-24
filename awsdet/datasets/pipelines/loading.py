@@ -2,6 +2,8 @@ import os.path as osp
 
 from awsdet.utils.fileio import FileClient
 from awsdet.utils.image.io import imfrombytes
+import pycocotools.mask as maskUtils
+from awsdet.core.mask.structures import BitmapMasks, PolygonMasks
 import numpy as np
 from ..builder import PIPELINES
 

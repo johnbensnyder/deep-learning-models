@@ -55,7 +55,7 @@ class MaxIoUAssigner(BaseAssigner):
         self.match_low_quality = match_low_quality
         self.iou_calculator = build_iou_calculator(iou_calculator)
         
-    def assign(self, bboxes, gt_bboxes, gt_bboxes_ignore=None, gt_labels=None):
+    def assign(self, bboxes, gt_bboxes, valid_flags=None, gt_bboxes_ignore=None, gt_labels=None):
         """Assign gt to bboxes.
         This method assign a gt bbox to every bbox (proposal/anchor), each bbox
         will be assigned with -1, or a semi-positive number. -1 means negative
@@ -85,16 +85,19 @@ class MaxIoUAssigner(BaseAssigner):
         """
         if isinstance(bboxes, list):
             bboxes = tf.concat(bboxes, axis=0)
+        if isinstance(valid_flags, list):
+            valid_flags = tf.concat(valid_flags, axis=0)
         gt_bboxes, valid_gts = trim_zeros(gt_bboxes)
         if gt_labels!=None:
-            gt_labels = tf.gather(gt_labels, valid_gts)
+            gt_labels = tf.boolean_mask(gt_labels, valid_gts)
         
         overlaps = self.iou_calculator(gt_bboxes, bboxes)
         
-        assign_result = self.assign_wrt_overlaps(overlaps, gt_labels)
+        assign_result = self.assign_wrt_overlaps(overlaps, valid_flags=valid_flags,
+                                                 gt_labels=gt_labels)
         return assign_result
     
-    def assign_wrt_overlaps(self, overlaps, gt_labels=None):
+    def assign_wrt_overlaps(self, overlaps, valid_flags=None, gt_labels=None):
         num_gts = tf.shape(overlaps)[0]
         num_bboxes = tf.shape(overlaps)[1]
         assigned_gt_inds = tf.ones(num_bboxes, dtype=tf.int32) * -1
@@ -124,8 +127,14 @@ class MaxIoUAssigner(BaseAssigner):
         
         # 2. assign negative: below
         # the negative inds are set to be 0
+        # leave invalid regions as -1
+        # if no valid_flags passed, tag everything as valid
+        if valid_flags==None:
+            valid_flags = tf.cast(tf.ones(num_bboxes), tf.bool)
         if isinstance(self.neg_iou_thr, float):
-            negative_indices = tf.cast(tf.where((max_overlaps>=0) & (max_overlaps<self.neg_iou_thr)), tf.int32)
+            negative_indices = tf.cast(tf.where((max_overlaps>=0) & \
+                                                (max_overlaps<self.neg_iou_thr) & \
+                                                (valid_flags)), tf.int32)
             updates = tf.squeeze(tf.zeros_like(negative_indices))
             # to deal with the case of getting a scalar
             if tf.size(updates)==1:
@@ -135,7 +144,9 @@ class MaxIoUAssigner(BaseAssigner):
                                                            updates)
         elif isinstance(self.neg_iou_thr, tuple):
             assert len(self.neg_iou_thr) == 2
-            negative_indices = tf.cast(tf.where((max_overlaps>=self.neg_iou_thr[0]) & (max_overlaps<self.neg_iou_thr[1])), tf.int32)
+            negative_indices = tf.cast(tf.where((max_overlaps>=self.neg_iou_thr[0]) & \
+                                                (max_overlaps<self.neg_iou_thr[1]) & \
+                                                (valid_flags)), tf.int32)
             updates = tf.squeeze(tf.zeros_like(negative_indices))
             if tf.size(updates)==1:
                 updates = tf.expand_dims(updates, axis=0)
@@ -159,12 +170,13 @@ class MaxIoUAssigner(BaseAssigner):
                                                            low_quality_anchors,
                                                            updates+1)
         if gt_labels is not None:
-            assigned_labels = tf.ones(num_boxes) * -1
-            pos_inds = tf.cast(tf.where(assigned_gt_inds > 0), tf.int32)
-            updates = tf.squeeze(tf.cast(tf.gather(gt_labels, pos_inds), tf.int32))
-            if tf.size(pos_inds) > 0:
+            assigned_labels = tf.ones(num_bboxes, dtype=tf.int32) * -1
+            pos_anchor_loc = tf.cast(tf.where(assigned_gt_inds > 0), tf.int32)
+            pos_gt_loc = tf.cast(tf.gather(assigned_gt_inds, tf.where(assigned_gt_inds>0)), tf.int32) - 1
+            updates = tf.squeeze(tf.cast(tf.gather(gt_labels, pos_gt_loc), tf.int32))
+            if tf.size(pos_anchor_loc) > 0:
                 assigned_labels = tf.tensor_scatter_nd_update(assigned_labels,
-                                                              pos_inds,
+                                                              pos_anchor_loc,
                                                               updates)
         else:
             assigned_labels = None

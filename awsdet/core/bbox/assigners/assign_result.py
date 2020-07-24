@@ -184,7 +184,7 @@ class AssignResult(util_mixins.NiceRepr):
             gt_labels (torch.Tensor): Labels of gt boxes
         """
         self_inds = tf.range(
-            1, len(gt_labels) + 1, dtype=tf.int64)
+            1, len(gt_labels) + 1, dtype=tf.int32)
         self.gt_inds = tf.concat([self_inds, self.gt_inds], axis=0)
 
         self.max_overlaps = torch.cat(
