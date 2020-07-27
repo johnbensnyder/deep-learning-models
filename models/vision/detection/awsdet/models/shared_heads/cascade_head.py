@@ -58,8 +58,8 @@ class CascadeHead(tf.keras.Model):
         out_weights = []
         batch_size = img_metas.shape[0]
         loss_dict = {}
+        rois_list = proposals_list
         for i in range(self.num_stages):
-            rois_list = proposals_list
             if training:
                 rois_list, rcnn_target_matches, rcnn_target_deltas, inside_weights, \
                     outside_weights = self.bbox_targets[i].build_targets( \
