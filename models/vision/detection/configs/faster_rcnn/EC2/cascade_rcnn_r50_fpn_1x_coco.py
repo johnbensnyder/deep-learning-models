@@ -109,7 +109,7 @@ test_cfg = dict(
 dataset_type = 'CocoDataset'
 data_root = '/workspace/shared_workspace/data/coco/coco'
 data = dict(
-    imgs_per_gpu=4,
+    imgs_per_gpu=2,
     train=dict(
         type=dataset_type,
         train=True,
@@ -163,8 +163,8 @@ optimizer_config = dict(
 lr_config = dict(
     policy='step',
     warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=1.0 / 3,
+    warmup_iters=1000,
+    warmup_ratio=1.0 / 10,
     step=[8, 11])
 checkpoint_config = dict(interval=1, outdir='checkpoints')
 # yapf:disable
