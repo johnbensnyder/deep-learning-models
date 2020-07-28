@@ -31,7 +31,7 @@ def main(args):
                     source_dir='.',
                     image_name=docker_image, 
                     role=role,
-                    framework_version="2.1.0",
+                    framework_version="2.2.0",
                     py_version="py3",
                     train_instance_count=hvd_instance_count,
                     train_instance_type=hvd_instance_type,

@@ -15,8 +15,8 @@ sagemaker_user=dict(
     s3_bucket='jbsnyder-sagemaker',
     docker_image='578276202366.dkr.ecr.us-east-1.amazonaws.com/jbsnyder:dlc22sagemaker',
     hvd_processes_per_host=8,
-    hvd_instance_type='ml.p3dn.24xlarge', # 'ml.p3.16xlarge',
-    hvd_instance_count=1,
+    hvd_instance_type='ml.p3.16xlarge', # 'ml.p3.16xlarge',
+    hvd_instance_count=4,
 )
 # settings for distributed training on sagemaker
 distributions=dict(
@@ -33,7 +33,7 @@ channels=dict(
 )
 
 sagemaker_job=dict(
-    s3_path='s3://{}/faster-rcnn/outputs/{}'.format(sagemaker_user['s3_bucket'], time_str),
+    s3_path='s3://{}/mask-rcnn/outputs/{}'.format(sagemaker_user['s3_bucket'], time_str),
     job_name='{}-frcnn-{}'.format(sagemaker_user['user_id'], time_str),
     output_path='',
 )
@@ -47,7 +47,7 @@ model=dict(
         type='KerasBackbone',
         model_name='ResNet50V1',
         weights_path='resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', # will be fully resolved to path in train script
-        weight_decay=1e-5
+        weight_decay=0
     ),
     neck=dict(
         type='FPN',
@@ -55,7 +55,7 @@ model=dict(
         out_channels=256,
         num_outs=5,
         interpolation_method='bilinear',
-        weight_decay=1e-5,
+        weight_decay=0,
     ),
     rpn_head=dict(
         type='RPNHead',
@@ -73,7 +73,7 @@ model=dict(
         num_post_nms_train=2000,
         num_pre_nms_test=12000,
         num_post_nms_test=2000,
-        weight_decay=1e-5,
+        weight_decay=0,
     ),
     bbox_roi_extractor=dict(
         type='PyramidROIAlign',
@@ -82,23 +82,36 @@ model=dict(
         use_tf_crop_and_resize=True,
     ),
     bbox_head=dict(
-    type='BBoxHead',
-    num_classes=81,
-    pool_size=[7, 7],
-    target_means=[0., 0., 0., 0.],
-    target_stds=[0.1, 0.1, 0.2, 0.2],
-    min_confidence=0.001, 
-    nms_threshold=0.5,
-    max_instances=100,
-    weight_decay=1e-5,
-    use_conv=True,
-    use_bn=False,
-    soft_nms_sigma=0.5)
+        type='BBoxHead',
+        num_classes=81,
+        pool_size=[7, 7],
+        target_means=[0., 0., 0., 0.],
+        target_stds=[0.1, 0.1, 0.2, 0.2],
+        min_confidence=0.001, 
+        nms_threshold=0.5,
+        max_instances=100,
+        weight_decay=0,
+        use_conv=True,
+        use_bn=False,
+        soft_nms_sigma=0.5
+    ),
+    mask_head=dict(
+        type='MaskHead',
+        num_classes=81,
+        weight_decay=0,
+        use_bn=False,
+    ),
+    mask_roi_extractor=dict(
+        type='PyramidROIAlign',
+        pool_shape=[14, 14],
+        pool_type='avg',
+        use_tf_crop_and_resize=True,
+    ),
 )
 
 # model training and testing settings
 train_cfg=dict(
-    weight_decay=1e-5,
+    weight_decay=0,
     sagemaker=True
 )
 test_cfg=dict(
@@ -108,7 +121,7 @@ test_cfg=dict(
 dataset_type='CocoDataset'
 data_root='/data/COCO/' # will be resolved to SM specific path in train.py
 data=dict(
-    imgs_per_gpu=4,
+    imgs_per_gpu=2,
     train=dict(
         type=dataset_type,
         train=True,
@@ -119,7 +132,8 @@ data=dict(
         preproc_mode='caffe',
         mean=(123.675, 116.28, 103.53),
         std=(1., 1., 1.),
-        scale=(800, 1333)),
+        scale=(800, 1333),
+        mask=True),
     val=dict(
         type=dataset_type,
         train=False,
@@ -146,7 +160,8 @@ data=dict(
 evaluation=dict(interval=1)
 # optimizer
 optimizer=dict(
-    type='SGD',
+    type='SGDW',
+    weight_decay=1e-4,
     learning_rate=1e-2,
     momentum=0.9,
     nesterov=False,
@@ -159,8 +174,8 @@ optimizer_config=dict(
 lr_config=dict(
     policy='step',
     warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=1.0 / 3,
+    warmup_iters=768,
+    warmup_ratio=1.0 / 8,
     step=[8, 11])
 #TODO: add support for S3 checkpointing
 checkpoint_config=dict(
@@ -177,7 +192,7 @@ log_config=dict(
             type='TensorboardLoggerHook',
             log_dir=None,
             image_interval=100,
-            s3_dir='{}/tensorboard/{}'.format(sagemaker_job['s3_path'], sagemaker_job['job_name'])
+            s3_dir='{}/tensorboard/{}'.format(sagemaker_job['s3_path'], sagemaker_job['job_name']),
         ),
         dict(
             type='Visualizer',
@@ -191,7 +206,7 @@ log_config=dict(
 # runtime settings
 total_epochs=12
 log_level='INFO'
-work_dir='./work_dirs/faster_rcnn_r50_fpn_1x_coco'
+work_dir='./work_dirs/mask_rcnn_r50_fpn_1x_coco'
 load_from=None
 resume_from=None
 workflow=[('train', 1)]
