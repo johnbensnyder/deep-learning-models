@@ -174,6 +174,8 @@ class MaxIoUAssigner(BaseAssigner):
             pos_anchor_loc = tf.cast(tf.where(assigned_gt_inds > 0), tf.int32)
             pos_gt_loc = tf.cast(tf.gather(assigned_gt_inds, tf.where(assigned_gt_inds>0)), tf.int32) - 1
             updates = tf.squeeze(tf.cast(tf.gather(gt_labels, pos_gt_loc), tf.int32))
+            if tf.size(updates)==1:
+                updates = tf.expand_dims(updates, axis=0)
             if tf.size(pos_anchor_loc) > 0:
                 assigned_labels = tf.tensor_scatter_nd_update(assigned_labels,
                                                               pos_anchor_loc,

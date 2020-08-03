@@ -36,6 +36,13 @@ class RandomSampler(BaseSampler):
         Returns:
             Tensor or ndarray: sampled indices.
         """
-        assert len(gallery) >= num
-        is_tensor = tf.is_tensor(gallery)
+        gallery_size = tf.shape(gallery)[0]
+        assert len(gallery_size) >= num
+        perm = tf.random.shuffle(tf.range(gallery_size))[:num]
+        rand_inds = tf.gather(gallery, perm)
+        return rand_inds
+    
+    def _sample_pos(self, assign_result, num_expected, **kwargs):
+        """Randomly sample some positive samples."""
+        pos_inds = tf.where(assign_result.gt_inds > 0)
         
