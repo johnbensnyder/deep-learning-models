@@ -8,7 +8,7 @@ model = dict(
     backbone=dict(
         type='KerasBackbone',
         model_name='ResNet50V1',
-        weights_path='weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
+        weights_path='/workspace/shared_workspace/data/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
         weight_decay=1e-5
     ),
     neck=dict(
@@ -21,9 +21,12 @@ model = dict(
     ),
     rpn_head=dict(
         type='RPNHead',
-        anchor_scales=[8.],
-        anchor_ratios=[0.5, 1.0, 2.0],
-        anchor_strides=[4, 8, 16, 32, 64],
+        anchor_generator=dict(
+            type='AnchorGenerator',
+            strides=[4, 8, 16, 32, 64],
+            ratios=[0.5, 1.0, 2.0],
+            scales=[8.]
+        ),
         target_means=[.0, .0, .0, .0],
         target_stds= [1.0, 1.0, 1.0, 1.0],
         feat_channels=512,
@@ -65,7 +68,7 @@ test_cfg = dict(
 )
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = '/deep-learning-models/models/vision/detection/data/'
+data_root = '/workspace/shared_workspace/data/coco/coco'
 data = dict(
     imgs_per_gpu=4,
     train=dict(

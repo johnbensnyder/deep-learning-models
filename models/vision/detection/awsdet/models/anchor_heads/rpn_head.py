@@ -16,9 +16,7 @@ from ..registry import HEADS
 class RPNHead(AnchorHead):
 
     def __init__(self,
-                 anchor_scales,
-                 anchor_ratios,
-                 anchor_strides,
+                 anchor_generator,
                  nms_threshold=0.7,
                  target_means=(0., 0., 0., 0.),
                  target_stds=(0.1, 0.1, 0.2, 0.2),
@@ -61,9 +59,7 @@ class RPNHead(AnchorHead):
         super(RPNHead, self).__init__(
                 self.num_classes,
                 feat_channels=feat_channels,
-                anchor_scales=anchor_scales,
-                anchor_ratios=anchor_ratios,
-                anchor_strides=anchor_strides,
+                anchor_generator=anchor_generator,
                 target_means=target_means,
                 target_stds=target_stds
                 )

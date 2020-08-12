@@ -5,10 +5,11 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import functools
 from awsdet.core.bbox import transforms
-from awsdet.models.utils.misc import calc_pad_shapes
+from awsdet.models.utils.misc import calc_img_shapes
 from awsdet.core.anchor.anchor_generator import AnchorGenerator
 from awsdet.models.losses import losses
 from ..registry import HEADS
+from awsdet.core.anchor.builder import build_anchor_generator
 
 @HEADS.register_module
 class AnchorHead(tf.keras.Model):
@@ -27,28 +28,16 @@ class AnchorHead(tf.keras.Model):
     """
     def __init__(self,
                  num_classes,
+                 anchor_generator,
                  feat_channels=256,
-                 octave_base_scale=None,
-                 scales_per_octave=None,
-                 anchor_scales=None,
-                 anchor_ratios=None,
-                 anchor_strides=None,
                  target_means=None,
                  target_stds=None):
         super(AnchorHead, self).__init__()
         self.num_classes = num_classes
         self.feat_channels = feat_channels
-        self.anchor_scales = anchor_scales
-        self.anchor_ratios = anchor_ratios
-        self.anchor_strides = anchor_strides
         self.target_means = target_means
         self.target_stds = target_stds
-        self.anchor_generator = AnchorGenerator(
-            scales=anchor_scales,
-            ratios=anchor_ratios,
-            strides=anchor_strides,
-            octave_base_scale=octave_base_scale,
-            scales_per_octave=scales_per_octave)
+        self.anchor_generator = build_anchor_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
 
@@ -79,7 +68,7 @@ class AnchorHead(tf.keras.Model):
 
         # for each image, we compute valid flags of multi level anchors
         valid_flag_list = []
-        img_shapes = calc_pad_shapes(img_metas)
+        img_shapes = calc_img_shapes(img_metas)
         for img_idx in range(num_imgs):
             multi_level_flags = self.anchor_generator.valid_flags(featmap_sizes, img_shapes[img_idx])
             valid_flag_list.append(multi_level_flags)

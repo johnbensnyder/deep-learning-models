@@ -3,8 +3,9 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
 from awsdet.models.utils.misc import calc_img_shapes, calc_pad_shapes
+from .builder import ANCHOR_GENERATORS
 
-
+@ANCHOR_GENERATORS.register_module
 class AnchorGenerator:
     """
     Standard anchor generator for 2D anchor-based detectors
@@ -220,7 +221,7 @@ class AnchorGenerator:
         indices_h = tf.expand_dims(tf.range(valid_h), axis=1)
         valid_x = tf.tensor_scatter_nd_update(valid_x, indices_w, tf.ones(valid_w, dtype=tf.int32))
         valid_y = tf.tensor_scatter_nd_update(valid_y, indices_h, tf.ones(valid_h, dtype=tf.int32))
-        grid = tf.meshgrid(valid_y, valid_x)
+        grid = tf.meshgrid(valid_x, valid_y)
         valid_yy, valid_xx = tf.cast(grid[1], tf.bool), tf.cast(grid[0], tf.bool)
         valid = tf.math.logical_and(valid_xx, valid_yy)
         valid = tf.repeat(valid[:, None], num_base_anchors, axis=-1)
