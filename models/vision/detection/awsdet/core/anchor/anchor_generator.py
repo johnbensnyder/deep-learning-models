@@ -198,8 +198,10 @@ class AnchorGenerator:
         multi_level_flags = []
         for i in range(self.num_levels):
             anchor_stride = self.strides[i]
-            feat_h, feat_w = featmap_sizes[i]
-            h, w = pad_shape[0], pad_shape[1]
+            feat_h = featmap_sizes[i][0]
+            feat_w = featmap_sizes[i][1]
+            h = pad_shape[0]
+            w = pad_shape[1]
             valid_feat_h = tf.math.minimum(tf.cast(tf.math.ceil(h / anchor_stride), tf.int32), feat_h)
             valid_feat_w = tf.math.minimum(tf.cast(tf.math.ceil(w / anchor_stride), tf.int32), feat_w)
             flags = self.single_level_valid_flags((feat_h, feat_w),

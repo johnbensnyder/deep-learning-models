@@ -14,7 +14,7 @@ class BaseSampler(metaclass=ABCMeta):
                  num,
                  pos_fraction,
                  neg_pos_ub=-1,
-                 add_gt_as_proposals=True,
+                 add_gt_as_proposals=False,
                  **kwargs):
         self.num = num
         self.pos_fraction = pos_fraction
@@ -75,13 +75,14 @@ class BaseSampler(metaclass=ABCMeta):
             if gt_labels is None:
                 raise ValueError(
                     'gt_labels must be given when add_gt_as_proposals is True')
-            bboxes = tf.concat([gt_bboxes, bboxes], dim=0)
+            bboxes = tf.concat([gt_bboxes, bboxes], axis=0)
             gt_inds, max_overlaps, labels = self.add_gt_(gt_labels, 
                                                          gt_inds, 
                                                          max_overlaps, 
                                                          labels)
             gt_ones = tf.ones(tf.shape(gt_bboxes)[0], dtype=tf.int8)
-            gt_flags = tf.concat([gt_ones, gt_flags], axis=0)
+            non_gt = tf.zeros(tf.shape(bboxes)[0], dtype=tf.int8)
+            gt_flags = tf.concat([gt_ones, non_gt], axis=0)
         num_expected_pos = int(self.num * self.pos_fraction)
         pos_inds = self.pos_sampler._sample_pos(
             gt_inds, num_expected_pos, bboxes=bboxes, **kwargs)

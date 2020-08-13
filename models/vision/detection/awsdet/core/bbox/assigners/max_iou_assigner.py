@@ -156,6 +156,8 @@ class MaxIoUAssigner(BaseAssigner):
         positive_indices = tf.cast(tf.where(max_overlaps>=self.pos_iou_thr), tf.int32)
         # assign argmax gt category as update
         updates = tf.squeeze(tf.cast(tf.gather(argmax_overlaps, positive_indices) + 1, tf.int32))
+        if tf.size(updates)==1:
+            updates = tf.expand_dims(updates, axis=0)
         assigned_gt_inds = tf.tensor_scatter_nd_update(assigned_gt_inds, 
                                                        positive_indices,
                                                        updates)

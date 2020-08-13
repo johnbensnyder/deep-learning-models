@@ -10,6 +10,7 @@ from awsdet.models.utils.misc import calc_pad_shapes
 from awsdet.core.anchor import anchor_target
 from awsdet.models.losses import losses
 from ..registry import HEADS
+from awsdet.core.bbox.builder import build_assigner, build_sampler
 
 
 @HEADS.register_module
@@ -18,13 +19,22 @@ class RPNHead(AnchorHead):
     def __init__(self,
                  anchor_generator,
                  nms_threshold=0.7,
-                 target_means=(0., 0., 0., 0.),
-                 target_stds=(0.1, 0.1, 0.2, 0.2),
-                 num_samples=256,
                  feat_channels=512,
-                 positive_fraction=0.5,
-                 pos_iou_thr=0.7,
-                 neg_iou_thr=0.3,
+                 assigner=dict(
+                     type="MaxIoUAssigner",
+                     pos_iou_thr=0.7,
+                     neg_iou_thr=0.3
+                 ),
+                 sampler=dict(
+                     type="RandomSampler",
+                     num=256,
+                     pos_fraction=0.5,
+                 ),
+                 box_coder=dict(
+                     type="DeltaYXHWBBoxCoder",
+                     target_means=(0., 0., 0., 0.),
+                     target_stds=(0.1, 0.1, 0.2, 0.2),
+                 ),
                  weight_decay=1e-4,
                  num_pre_nms_train=12000,
                  num_post_nms_train=2000,
@@ -60,23 +70,16 @@ class RPNHead(AnchorHead):
                 self.num_classes,
                 feat_channels=feat_channels,
                 anchor_generator=anchor_generator,
-                target_means=target_means,
-                target_stds=target_stds
+                box_coder=box_coder
                 )
-        self.num_samples = num_samples
         self.nms_threshold = nms_threshold
         self.num_pre_nms_train = num_pre_nms_train
         self.num_post_nms_train = num_post_nms_train
         self.num_pre_nms_test = num_pre_nms_test
         self.num_post_nms_test = num_post_nms_test
 
-        self.anchor_target = anchor_target.AnchorTarget(
-            target_means=self.target_means,
-            target_stds=self.target_stds,
-            num_samples=num_samples,
-            positive_fraction=positive_fraction,
-            pos_iou_thr=pos_iou_thr,
-            neg_iou_thr=neg_iou_thr)
+        self.assigner = build_assigner(assigner)
+        self.sampler = build_sampler(sampler)
 
         self.rpn_class_loss = losses.rpn_class_loss
         self.rpn_bbox_loss = losses.rpn_bbox_loss
@@ -104,7 +107,7 @@ class RPNHead(AnchorHead):
         shared = self.rpn_conv_shared(feat)
         x = self.rpn_class_raw(shared)
         rpn_class_logits = layers.Activation('linear', dtype=tf.float32)(x) # for AMP
-        rpn_probs = layers.Activation('softmax', dtype='float32', name='rpn_probs')(rpn_class_logits)
+        rpn_probs = layers.Activation('softmax', dtype=tf.float32, name='rpn_probs')(rpn_class_logits)
         x = self.rpn_delta_pred(shared)
         rpn_deltas = layers.Activation('linear', dtype=tf.float32)(x)
         return rpn_class_logits, rpn_probs, rpn_deltas
@@ -129,6 +132,104 @@ class RPNHead(AnchorHead):
         outputs = list(zip(*layer_outputs))
         rpn_class_logits, rpn_probs, rpn_deltas = outputs
         return rpn_class_logits, rpn_probs, rpn_deltas
+    
+    def _get_targets_single(self,
+                            flat_anchors,
+                        valid_flags,
+                        gt_bboxes,
+                        img_meta,
+                        gt_labels=None,
+                        gt_bboxes_ignore=None,
+                        label_channels=1,
+                        unmap_outputs=True,
+                        class_agnostic=True):
+        def combine_inds(pos_inds, neg_inds):
+            pos_flags = tf.ones_like(pos_inds)
+            neg_flags = tf.zeros_like(neg_inds)
+            pos_flags =  tf.concat([pos_flags, neg_flags], axis=0)
+            inds = tf.concat([pos_inds, neg_inds], axis=0)
+            return inds, pos_flags
+        anchors = tf.boolean_mask(flat_anchors, valid_flags)
+        # get assignments
+        num_gts, gt_inds, max_overlaps, labels = self.assigner.assign(flat_anchors, 
+                                        gt_bboxes, valid_flags, 
+                                        gt_labels=gt_labels)
+        # sample from assignments
+        pos_inds, neg_inds, pos_bboxes, \
+        neg_bboxes, pos_gt_bboxes, \
+        pos_assigned_gt_inds, pos_gt_labels = self.sampler.sample(num_gts, gt_inds, 
+                                         max_overlaps, labels, 
+                                         flat_anchors, gt_bboxes, gt_labels)
+        num_valid_anchors = tf.shape(flat_anchors)[0]
+        bbox_targets = tf.zeros_like(flat_anchors, dtype=flat_anchors.dtype)
+        bbox_weights = tf.zeros_like(flat_anchors, dtype=flat_anchors.dtype)
+        labels = tf.zeros(num_valid_anchors, dtype=gt_labels.dtype)
+        label_weights = tf.zeros(num_valid_anchors, dtype=flat_anchors.dtype)
+        if len(pos_inds) > 0:
+            pos_bbox_targets = self.bbox_coder.encode(
+                    pos_bboxes, pos_gt_bboxes)
+        else:
+            pos_bbox_targets = pos_gt_bboxes
+        bbox_targets = tf.tensor_scatter_nd_update(bbox_targets,
+                                tf.expand_dims(pos_inds, axis=1),
+                                pos_bbox_targets)
+        bbox_weights = tf.tensor_scatter_nd_update(bbox_weights,
+                                tf.expand_dims(pos_inds, axis=1),
+                                tf.ones_like(pos_bbox_targets))
+        if gt_labels is None or class_agnostic:
+            labels = tf.tensor_scatter_nd_update(labels,
+                        tf.expand_dims(pos_inds, axis=1),
+                        tf.ones_like(pos_inds, dtype=labels.dtype))
+        else:
+            labels = tf.tensor_scatter_nd_update(labels,
+                        tf.expand_dims(pos_inds, axis=1),
+                        tf.gather(gt_labels, pos_assigned_gt_inds))
+        label_weights = tf.tensor_scatter_nd_update(label_weights,
+                        tf.expand_dims(pos_inds, axis=1),
+                        tf.ones_like(pos_inds, dtype=label_weights.dtype))
+        label_weights = tf.tensor_scatter_nd_update(label_weights,
+                        tf.expand_dims(neg_inds, axis=1),
+                        tf.ones_like(neg_inds, dtype=label_weights.dtype))
+        inds, pos_flags = combine_inds(pos_inds, neg_inds)
+        return (labels, label_weights, bbox_targets, bbox_weights, inds,
+                    pos_flags)
+    
+    def get_targets(self, rpn_class_logits, gt_bboxes,
+                img_metas, gt_labels, return_sampling_results=False):
+        feature_maps_sizes = [tf.shape(i)[1:3] for i in rpn_class_logits]
+        anchor_list, valid_flag_list = self.get_anchors(feature_maps_sizes, img_metas)
+        num_imgs = len(img_metas)
+        assert len(anchor_list) == len(valid_flag_list) == num_imgs
+        all_labels = tf.TensorArray(dtype=gt_labels.dtype, size=num_imgs)
+        all_label_weights = tf.TensorArray(dtype=gt_bboxes.dtype, size=num_imgs)
+        all_bbox_targets = tf.TensorArray(dtype=gt_bboxes.dtype, size=num_imgs)
+        all_bbox_weights = tf.TensorArray(dtype=gt_bboxes.dtype, size=num_imgs)
+        inds_list = tf.TensorArray(dtype=tf.int64, size=num_imgs)
+        pos_flags_list = tf.TensorArray(dtype=tf.int64, size=num_imgs)
+        for i in range(num_imgs):
+            flat_anchors = tf.concat(anchor_list[i], axis=0)
+            flat_flags = tf.concat(valid_flag_list[i], axis=0)
+            labels, label_weights, bbox_targets, \
+            bbox_weights, inds, \
+            pos_flags = self._get_targets_single(flat_anchors,
+                                           flat_flags,
+                                           gt_bboxes[i],
+                                           img_metas[i],
+                                           gt_labels[i])
+            all_labels = all_labels.write(i, labels)
+            all_label_weights = all_label_weights.write(i, label_weights)
+            all_bbox_targets = all_bbox_targets.write(i, bbox_targets)
+            all_bbox_weights = all_bbox_weights.write(i, bbox_weights)
+            inds_list = inds_list.write(i, inds)
+            pos_flags_list = pos_flags_list.write(i, pos_flags)
+        all_labels = all_labels.stack()
+        all_label_weights = all_label_weights.stack()
+        all_bbox_targets = all_bbox_targets.stack()
+        all_bbox_weights = all_bbox_weights.stack()
+        inds_list = inds_list.stack()
+        pos_flags_list = pos_flags_list.stack()
+        return (all_labels, all_label_weights, all_bbox_targets, 
+                    all_bbox_weights, inds_list, pos_flags_list)
 
 
     def loss(self, cls_scores, pred_deltas, gt_bboxes, gt_labels, img_metas):

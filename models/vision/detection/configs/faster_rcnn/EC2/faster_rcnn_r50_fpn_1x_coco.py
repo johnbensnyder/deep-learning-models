@@ -27,13 +27,23 @@ model = dict(
             ratios=[0.5, 1.0, 2.0],
             scales=[8.]
         ),
-        target_means=[.0, .0, .0, .0],
-        target_stds= [1.0, 1.0, 1.0, 1.0],
+        box_coder=dict(
+            type="DeltaYXHWBBoxCoder",
+            target_means=(0., 0., 0., 0.),
+            target_stds=(0.1, 0.1, 0.2, 0.2),
+        ),
         feat_channels=512,
-        num_samples=256,
-        positive_fraction=0.5,
-        pos_iou_thr=0.7,
-        neg_iou_thr=0.3,
+        assigner=dict(
+            type="MaxIoUAssigner",
+            pos_iou_thr=0.7,
+            neg_iou_thr=0.3
+        ),
+        sampler=dict(
+            type="RandomSampler",
+            num=256,
+            pos_fraction=0.5,
+            add_gt_as_proposals=False,
+        ),
         num_pre_nms_train=12000,
         num_post_nms_train=2000,
         num_pre_nms_test=12000,

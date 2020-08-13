@@ -10,6 +10,7 @@ from awsdet.core.anchor.anchor_generator import AnchorGenerator
 from awsdet.models.losses import losses
 from ..registry import HEADS
 from awsdet.core.anchor.builder import build_anchor_generator
+from awsdet.core.bbox.builder import build_bbox_coder
 
 @HEADS.register_module
 class AnchorHead(tf.keras.Model):
@@ -30,13 +31,12 @@ class AnchorHead(tf.keras.Model):
                  num_classes,
                  anchor_generator,
                  feat_channels=256,
-                 target_means=None,
-                 target_stds=None):
+                 box_coder=dict(
+                     type="DeltaYXHWBBoxCoder")):
         super(AnchorHead, self).__init__()
         self.num_classes = num_classes
         self.feat_channels = feat_channels
-        self.target_means = target_means
-        self.target_stds = target_stds
+        self.bbox_coder = build_bbox_coder(box_coder)
         self.anchor_generator = build_anchor_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
